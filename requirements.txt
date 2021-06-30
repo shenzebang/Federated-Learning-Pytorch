@@ -1,0 +1,6 @@
+torch~=1.7.1+cu101
+tqdm~=4.59.0
+ray~=1.2.0
+joblib~=1.0.1
+numpy~=1.19.5
+torchvision~=0.8.2+cu101
