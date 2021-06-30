@@ -38,7 +38,7 @@ class FEDAVG(FedAlgorithm):
                 loss.backward()
                 optimizer.step()
 
-        return f_local
+        return FEDAVG_client_state(model=f_local)
 
     def server_step(self, server_state: FEDAVG_server_state, client_states: FEDAVG_client_state, weights):
         # todo: add the implementation for non-uniform weight

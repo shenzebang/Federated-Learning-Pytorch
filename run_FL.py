@@ -24,7 +24,7 @@ def make_parser():
     parser.add_argument('--local_epoch', type=int, default=5)
     parser.add_argument('--client_step_per_epoch', type=int, default=5)
     parser.add_argument('--test_batch_size', type=int, default=200)
-    parser.add_argument('--n_ray_workers', type=int, default=2)
+    parser.add_argument('--use_ray', type=bool, default=True)
     parser.add_argument('--n_global_rounds', type=int, default=5000)
     parser.add_argument('--eval_freq', type=int, default=1)
 

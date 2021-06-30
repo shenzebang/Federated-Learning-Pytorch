@@ -1,5 +1,6 @@
 import torch
 from tqdm import trange
+import ray
 class FedAlgorithm(object):
     def __init__(self,
                  model,
@@ -17,12 +18,14 @@ class FedAlgorithm(object):
         self.logger = logger
         self.config = config
         self.device = device
+        if self.config.use_ray:
+            ray.init()
 
     def step(self, server_state, client_states, weights):
         # server_state contains the (global) model, (global) auxiliary variables, weights of clients
         # client_states contain the (local) auxiliary variables
         client_states = [self.client_step(client_state, client_dataloader)
-                         for client_state, client_dataloader in zip(client_states, self.client_dataloaders)]
+                             for client_state, client_dataloader in zip(client_states, self.client_dataloaders)]
         server_state = self.server_step(server_state, client_states, weights)
 
         client_states = [self.client_update(server_state, client_state, client_dataloader)
@@ -42,8 +45,6 @@ class FedAlgorithm(object):
             if round % self.config.eval_freq == 0:
                 metric = self.test_fn(server_state.model)
                 self.logger.log(round, metric)
-
-
 
 
 

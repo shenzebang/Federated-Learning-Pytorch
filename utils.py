@@ -126,9 +126,9 @@ def make_transforms(args, train=True):
     if args.dataset == "cifar10":
         if train:
             transform = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
+                # transforms.ToPILImage(),
+                # transforms.RandomCrop(32, padding=4),
+                # transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
@@ -159,14 +159,14 @@ def make_evaluate_fn(dataloader, device, eval_type="accuracy"):
             n_data = 0
             n_correct = 0
             for data, label in dataloader:
-                data.to(device)
-                label.to(device)
+                data = data.to(device)
+                label = label.to(device)
                 f_data = model(data)
                 pred = f_data.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
                 n_correct += pred.eq(label.view_as(pred)).sum().item()
                 n_data += data.shape[0]
 
-            return np.true_divide(n_correct/n_data)
+            return np.true_divide(n_correct, n_data)
     else:
         raise NotImplementedError
 
