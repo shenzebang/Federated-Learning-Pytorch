@@ -126,9 +126,9 @@ def make_transforms(args, train=True):
     if args.dataset == "cifar10":
         if train:
             transform = transforms.Compose([
-                # transforms.ToPILImage(),
-                # transforms.RandomCrop(32, padding=4),
-                # transforms.RandomHorizontalFlip(),
+                transforms.ToPILImage(),
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
@@ -220,3 +220,4 @@ class Logger:
 
     def log(self, step, accuracy):
         self.writer.add_scalar("correct rate vs round/test", accuracy, step)
+        print("Step %4d, accuracy %.3f" % (step, accuracy))

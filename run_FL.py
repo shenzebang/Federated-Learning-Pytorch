@@ -34,7 +34,7 @@ def make_parser():
 def main():
     # 1. load the configurations
     args = make_parser().parse_args()
-
+    # args.use_ray = False
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     # 2. prepare the data set
