@@ -23,11 +23,17 @@ class FedAlgorithm(object):
     def step(self, server_state, client_states, weights):
         # server_state contains the (global) model, (global) auxiliary variables, weights of clients
         # client_states contain the (local) auxiliary variables
-        client_states = self.clients_step(client_states)
 
-        server_state = self.server_step(server_state, client_states, weights)
+        # sample active clients
+        active_ids = torch.randperm(self.config.n_workers)[:self.config.n_workers_per_round].tolist()
 
-        client_states = self.clients_update(server_state, client_states)
+        client_states = self.clients_step(client_states, active_ids)
+
+        # aggregate
+        server_state = self.server_step(server_state, client_states, weights, active_ids)
+
+        # broadcast
+        client_states = self.clients_update(server_state, client_states, active_ids)
 
         return server_state, client_states
 
@@ -51,11 +57,11 @@ class FedAlgorithm(object):
     def client_init(self, server_state, client_dataloader):
         raise NotImplementedError
 
-    def clients_step(self, client_state):
+    def clients_step(self, client_state, active_ids):
         raise NotImplementedError
 
-    def server_step(self, server_state, client_states, weights):
+    def server_step(self, server_state, client_states, weights, active_ids):
         raise NotImplementedError
 
-    def clients_update(self, server_state, client_state):
+    def clients_update(self, server_state, client_state, active_ids):
         raise NotImplementedError

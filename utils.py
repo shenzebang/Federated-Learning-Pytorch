@@ -4,7 +4,7 @@ import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
-from model import convnet, mlp
+from model import convnet, mlp, resnet
 
 DATASETS = {
     "cifar": datasets.CIFAR10,
@@ -43,29 +43,35 @@ def average_grad(grads):
     return average_grad_a
 
 
-def average_functions(models):
+def weighted_sum_functions(models, weights=None):
+    if weights is None:
+        weights = [1./len(models)]*len(models)
     average_model = models[0]
     sds = [model.state_dict() for model in models]
     average_sd = sds[0]
     for key in sds[0]:
-        average_sd[key] = torch.mean(torch.stack([sd[key] for sd in sds]), dim=0)
+        # print(key, )
+        if sds[0][key].dtype is torch.int64:
+            average_sd[key] = torch.sum(torch.stack([sd[key].float() * weight for sd, weight in zip(sds, weights)]), dim=0).to(torch.int64)
+        else:
+            average_sd[key] = torch.sum(torch.stack([sd[key] * weight for sd, weight in zip(sds, weights)]), dim=0)
     average_model.load_state_dict(average_sd)
     return average_model
 
 
 
-def split_dataset(args, dataset: VisionDataset, transform=None):
+def split_dataset(n_workers, homo_ratio, dataset: VisionDataset, transform=None):
 
     data = dataset.data
     label = dataset.targets
 
     # centralized case, no need to split
-    if args.n_workers == 1:
+    if n_workers == 1:
         return [make_dataset(data, label, dataset.train, transform)]
 
 
-    homo_ratio = args.homo_ratio
-    n_workers = args.n_workers
+    homo_ratio = homo_ratio
+    n_workers = n_workers
 
     n_data = data.shape[0]
 
@@ -97,7 +103,7 @@ def split_dataset(args, dataset: VisionDataset, transform=None):
         data_list = data_homo_list
         label_list = label_homo_list
 
-    return [make_dataset(data, label, dataset.train, transform) for data, label in zip(data_list, label_list)]
+    return [make_dataset(_data, _label, dataset.train, transform) for _data, _label in zip(data_list, label_list)]
 
 
 class LocalDataset(VisionDataset):
@@ -122,23 +128,26 @@ def make_dataset(data, label, train, transform):
     return LocalDataset(data, label, train, transform)
 
 
+normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+
 def make_transforms(args, train=True):
     if args.dataset == "cifar10":
         if train:
             transform = transforms.Compose([
                 transforms.ToPILImage(),
-                transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
+                transforms.RandomCrop(32, padding=4),
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                normalize,
             ])
         else:
             transform = transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                normalize,
             ])
     else:
-        transform = None
+        raise NotImplementedError
 
     return transform
 
@@ -153,7 +162,7 @@ def make_dataloader(args, dataset: LocalDataset):
     return dataloader
 
 
-def make_evaluate_fn(dataloader, device, eval_type="accuracy"):
+def make_evaluate_fn(dataloader, device, eval_type="accuracy", n_classes=0):
     if eval_type == "accuracy":
         def evaluate_fn(model):
             n_data = 0
@@ -165,8 +174,23 @@ def make_evaluate_fn(dataloader, device, eval_type="accuracy"):
                 pred = f_data.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
                 n_correct += pred.eq(label.view_as(pred)).sum().item()
                 n_data += data.shape[0]
-
             return np.true_divide(n_correct, n_data)
+    elif eval_type == "class_wise_accuracy":
+        def evaluate_fn(model):
+            correct_hist = torch.zeros(n_classes).to(device)
+            label_hist = torch.zeros(n_classes).to(device)
+            for data, label in dataloader:
+                data = data.to(device)
+                label = label.to(device)
+                label_hist += torch.histc(label, n_classes, max=n_classes)
+                f_data = model(data)
+                pred = f_data.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+                correct_index = pred.eq(label.view_as(pred)).squeeze()
+                label_correct = label[correct_index]
+                correct_hist += torch.histc(label_correct, n_classes, max=n_classes)
+
+            correct_rate_hist = correct_hist/label_hist
+            return correct_rate_hist.cpu().numpy()
     else:
         raise NotImplementedError
 
@@ -202,6 +226,8 @@ def make_model(args, n_classes, n_channels, device):
         model = convnet.LeNet5(n_classes, n_channels, conv_hidden_size, dense_hidden_size, device)
     elif args.model == "mlp":
         model = mlp.MLP(n_classes, dense_hidden_size, device)
+    elif args.model == "resnet":
+        model = resnet.resnet20().to(device)
     else:
         raise NotImplementedError
 
@@ -215,9 +241,24 @@ def chunks(lst, n):
 
 
 class Logger:
-    def __init__(self, writer):
+    def __init__(self, writer, print_result=False):
         self.writer = writer
+        self.print_result = print_result
 
     def log(self, step, accuracy):
-        self.writer.add_scalar("correct rate vs round/test", accuracy, step)
-        print("Step %4d, accuracy %.3f" % (step, accuracy))
+        if type(accuracy) == np.float64:
+            self.writer.add_scalar("correct rate vs round/test", accuracy, step)
+            if self.print_result:
+                print("Step %4d, accuracy %.3f" % (step, accuracy))
+
+        elif type(accuracy) == np.ndarray:
+            n_classes = len(accuracy)
+            for i in range(n_classes):
+                # the i th element is the accuracy for the test data with label i
+                self.writer.add_scalar(f"class-wise correct rate vs round/test/class_{i}", accuracy[i], step)
+            # the last element is the accuracy for the whole test set
+            # self.writer.add_scalar("correct rate vs round/test", accuracy[-1], step)
+            # if self.print_result:
+            #     print("Step %4d, accuracy %.3f" % (step, accuracy[-1]))
+        else:
+            raise NotImplementedError
