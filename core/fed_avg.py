@@ -57,7 +57,7 @@ class FEDAVG(FedAlgorithm):
         return [FEDAVG_client_state(global_round=server_state.global_round, model=server_state.model) for _ in clients_state]
 
 
-@ray.remote(num_gpus=.25)
+@ray.remote(num_gpus=.5)
 def client_step(config, loss_fn, device, client_state: FEDAVG_client_state, client_dataloader):
     f_local = copy.deepcopy(client_state.model)
     f_local.requires_grad_(True)

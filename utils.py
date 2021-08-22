@@ -262,3 +262,41 @@ class Logger:
             #     print("Step %4d, accuracy %.3f" % (step, accuracy[-1]))
         else:
             raise NotImplementedError
+
+def create_imbalance(dataset, reduce_classes=(0,), reduce_to_ratio=.1):
+
+    data = dataset.data
+    label = dataset.targets
+
+    reduce_mask = torch.zeros(data.shape[0], dtype=torch.bool)
+    for reduce_class in reduce_classes:
+        reduce_mask = torch.logical_or(reduce_mask, label == reduce_class)
+    preserve_mask = torch.logical_not(reduce_mask)
+
+
+    label_reduce = label[reduce_mask]
+    len_reduce = label_reduce.shape[0]
+    label_reduce = label_reduce[:max(1, int(len_reduce*reduce_to_ratio))]
+    label_preserve = label[preserve_mask]
+
+    label = torch.cat([label_reduce, label_preserve], dim=0)
+
+
+    preserve_mask_np = preserve_mask.numpy()
+    reduce_mask_np = reduce_mask.numpy()
+
+    data_reduce = data[reduce_mask_np]
+    data_reduce = data_reduce[:max(1, int(len_reduce*reduce_to_ratio))]
+    data_preserve = data[preserve_mask_np]
+
+    data = np.concatenate([data_reduce, data_preserve], axis=0)
+
+    remain_len = label.shape[0]
+
+    rand_index = torch.randperm(remain_len)
+    rand_index_np = rand_index.numpy()
+
+    dataset.data = data[rand_index_np]
+    dataset.targets = label[rand_index]
+
+    return dataset

@@ -2,7 +2,7 @@ import time
 import argparse
 import torch
 from utils import load_dataset, make_model, make_dataloader, split_dataset, make_evaluate_fn, save_model,\
-    make_transforms, Logger
+    make_transforms, Logger, create_imbalance
 from core.fed_avg import FEDAVG
 from torch.utils.tensorboard import SummaryWriter
 FEDERATED_LEARNERS = {
@@ -30,6 +30,7 @@ def make_parser():
     parser.add_argument('--n_global_rounds', type=int, default=5000)
     parser.add_argument('--eval_freq', type=int, default=1)
     parser.add_argument('--test_metric', type=str, choices=['accuracy', 'class_wise_accuracy'], default='class_wise_accuracy')
+    parser.add_argument('--imbalance', type=bool, default=True)
     return parser
 
 
@@ -41,6 +42,9 @@ def main():
 
     # 2. prepare the data set
     dataset_train, dataset_test, n_classes, n_channels = load_dataset(args)
+    if args.imbalance:
+        dataset_train = create_imbalance(dataset_train)
+
     transforms = make_transforms(args, train=True) # transforms for data augmentation and normalization
     local_datasets = split_dataset(args.n_workers, args.homo_ratio, dataset_train, transforms)
     local_dataloaders = [make_dataloader(args, local_dataset) for local_dataset in local_datasets]
@@ -57,7 +61,7 @@ def main():
 
     loss = torch.nn.functional.cross_entropy
     ts = time.time()
-    if args.model is 'resnet':
+    if args.model == 'resnet':
         tb_file = f'out/{args.dataset}/resnet20/s{args.homo_ratio}' \
                   f'/N{args.n_workers}/rhog{args.local_lr}_{args.learner}_{ts}'
     else:
