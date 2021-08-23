@@ -37,7 +37,7 @@ class FedAlgorithm(object):
 
         return server_state, client_states
 
-    def fit(self, weights=None):
+    def fit(self, weights):
         # if weights is None, use uniform weights among clients
 
         server_state = self.server_init()

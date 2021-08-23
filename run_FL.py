@@ -87,7 +87,7 @@ def main():
         weights = [1.] * args.n_workers
         weights[0] = 5.
     else:
-        weights = None
+        weights = [1.] * args.n_workers
 
 
 

@@ -47,7 +47,7 @@ class FEDAVG(FedAlgorithm):
         # todo: add the implementation for non-uniform weight
         active_clients = [client_states[i] for i in active_ids]
 
-        active_weights = None if weights is None else [weights[i] for i in active_ids]
+        active_weights = [weights[i] for i in active_ids]
 
         new_model = weighted_sum_functions([client_state.model for client_state in active_clients], active_weights)
         new_server_state = FEDAVG_server_state(

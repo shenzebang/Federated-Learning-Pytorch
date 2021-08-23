@@ -43,11 +43,10 @@ def average_grad(grads):
     return average_grad_a
 
 
-def weighted_sum_functions(models, weights=None):
-    if weights is None:
-        weights = [1./len(models)]*len(models)
-    else:
-        weights = [weight/len(models) for weight in weights]
+def weighted_sum_functions(models, weights):
+    # ensure "weights" has unit sum
+    sum_weights = sum(weights)
+    weights = [weight/sum_weights for weight in weights]
 
     average_model = models[0]
     sds = [model.state_dict() for model in models]
