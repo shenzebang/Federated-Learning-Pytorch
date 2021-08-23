@@ -38,9 +38,7 @@ class FedAlgorithm(object):
         return server_state, client_states
 
     def fit(self, weights=None):
-        # if weights is None, use uniform weights
-        if weights is None:
-            weights = torch.ones((len(self.client_dataloaders)), device=self.device) / len(self.client_dataloaders)
+        # if weights is None, use uniform weights among clients
 
         server_state = self.server_init()
         client_states = [self.client_init(server_state, client_dataloader) for client_dataloader in

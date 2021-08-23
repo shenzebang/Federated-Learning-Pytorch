@@ -26,24 +26,33 @@ def make_parser():
     parser.add_argument('--local_epoch', type=int, default=5)
     parser.add_argument('--client_step_per_epoch', type=int, default=5)
     parser.add_argument('--test_batch_size', type=int, default=200)
-    parser.add_argument('--use_ray', type=bool, default=True)
+    parser.add_argument('--use_ray', action='store_true')
     parser.add_argument('--n_global_rounds', type=int, default=5000)
     parser.add_argument('--eval_freq', type=int, default=1)
+    ################################################################
+    # what to report in tensorboard
     parser.add_argument('--test_metric', type=str, choices=['accuracy', 'class_wise_accuracy'], default='class_wise_accuracy')
-    parser.add_argument('--imbalance', type=bool, default=True)
+    ################################################################
+    # allow the clients to have different weights
+    parser.add_argument('--weighted', action='store_true')
+    ################################################################
+    # create imbalance among classes
+    parser.add_argument('--imbalance', action='store_true')
+    parser.add_argument('--reduce_to_ratio', type=float, default=1.)
     return parser
 
 
 def main():
     # 1. load the configurations
     args = make_parser().parse_args()
+    print(args)
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
     # 2. prepare the data set
     dataset_train, dataset_test, n_classes, n_channels = load_dataset(args)
     if args.imbalance:
-        dataset_train = create_imbalance(dataset_train)
+        dataset_train = create_imbalance(dataset_train, reduce_to_ratio=args.reduce_to_ratio)
 
     transforms = make_transforms(args, train=True) # transforms for data augmentation and normalization
     local_datasets = split_dataset(args.n_workers, args.homo_ratio, dataset_train, transforms)
@@ -74,11 +83,21 @@ def main():
     # 4. run weighted FL
     # todo: assign weights to different clients
 
+    if args.weighted:
+        weights = [1.] * args.n_workers
+        weights[0] = 5.
+    else:
+        weights = None
+
+
+
     make_fed_learner = FEDERATED_LEARNERS[args.learner]
 
     fed_learner = make_fed_learner(model, local_dataloaders, loss, test_fn, logger, args, device)
 
-    fed_learner.fit()
+
+
+    fed_learner.fit(weights)
 
     # # 4. save the model
     # save_model(args, fed_learner)

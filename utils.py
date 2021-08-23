@@ -46,6 +46,9 @@ def average_grad(grads):
 def weighted_sum_functions(models, weights=None):
     if weights is None:
         weights = [1./len(models)]*len(models)
+    else:
+        weights = [weight/len(models) for weight in weights]
+
     average_model = models[0]
     sds = [model.state_dict() for model in models]
     average_sd = sds[0]
@@ -263,7 +266,7 @@ class Logger:
         else:
             raise NotImplementedError
 
-def create_imbalance(dataset, reduce_classes=(0,), reduce_to_ratio=.1):
+def create_imbalance(dataset, reduce_classes=(0,), reduce_to_ratio=.2):
 
     data = dataset.data
     label = dataset.targets
