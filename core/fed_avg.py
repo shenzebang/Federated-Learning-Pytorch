@@ -15,17 +15,16 @@ class FEDAVG(FedAlgorithm):
     def __init__(self, model,
                  client_dataloaders,
                  loss,
-                 test_fn,
                  logger,
                  config,
                  device
                  ):
-        super(FEDAVG, self).__init__(model, client_dataloaders, loss, test_fn, logger, config, device)
+        super(FEDAVG, self).__init__(model, client_dataloaders, loss, logger, config, device)
         if self.config.use_ray:
             ray.init()
 
-    def server_init(self):
-        return FEDAVG_server_state(global_round=0, model=self.model)
+    def server_init(self, init_model):
+        return FEDAVG_server_state(global_round=0, model=init_model)
 
     def client_init(self, server_state: FEDAVG_server_state, client_dataloader):
         return FEDAVG_client_state(global_round=server_state.global_round, model=server_state.model)
@@ -47,12 +46,14 @@ class FEDAVG(FedAlgorithm):
         # todo: add the implementation for non-uniform weight
         active_clients = [client_states[i] for i in active_ids]
 
-        active_weights = [weights[i] for i in active_ids]
-
-        new_model = weighted_sum_functions([client_state.model for client_state in active_clients], active_weights)
+        # x(t+1) = x(t) + global_lr * 1/m * sum_i weights[i] (x_i(t+1) - x(t)), m = len(active_ids)
+        active_weights = [weights[i] * self.config.global_lr / len(active_ids) for i in active_ids]
+        new_model = weighted_sum_functions([client_state.model for client_state in active_clients] + [server_state.model],
+                                           active_weights+[1-self.config.global_lr * sum(active_weights)])
+        # new_model = weighted_sum_functions([client.model for client in active_clients], active_weights)
         new_server_state = FEDAVG_server_state(
             global_round=server_state.global_round + 1,
-            model=weighted_sum_functions([new_model, server_state.model], [self.config.global_lr, (1-self.config.global_lr)])
+            model=new_model
         )
         return new_server_state
 
@@ -60,15 +61,15 @@ class FEDAVG(FedAlgorithm):
         return [FEDAVG_client_state(global_round=server_state.global_round, model=server_state.model) for _ in clients_state]
 
 
-@ray.remote(num_gpus=.3)
+@ray.remote(num_gpus=.3, num_cpus=4)
 def client_step(config, loss_fn, device, client_state: FEDAVG_client_state, client_dataloader):
     f_local = copy.deepcopy(client_state.model)
     f_local.requires_grad_(True)
     lr_decay = 1.
-    if client_state.global_round >= 1000:
-        lr_decay = .1
-    elif client_state.global_round >= 1500:
-        lr_decay = .01
+    # if client_state.global_round >= 1000:
+    #     lr_decay = .1
+    # elif client_state.global_round >= 1500:
+    #     lr_decay = .01
     optimizer = optim.SGD(f_local.parameters(), lr=lr_decay*config.local_lr)
 
     for epoch in range(config.local_epoch):
@@ -87,10 +88,10 @@ def _client_step(config, loss_fn, device, client_state: FEDAVG_client_state, cli
     f_local = copy.deepcopy(client_state.model)
     f_local.requires_grad_(True)
     lr_decay = 1.
-    if client_state.global_round >= 100:
-        lr_decay = .1
-    elif client_state.global_round >= 200:
-        lr_decay = .01
+    # if client_state.global_round >= 1000:
+    #     lr_decay = .1
+    # elif client_state.global_round >= 1500:
+    #     lr_decay = .01
     optimizer = optim.SGD(f_local.parameters(), lr=lr_decay*config.local_lr)
     for epoch in range(config.local_epoch):
         for data, label in client_dataloader:

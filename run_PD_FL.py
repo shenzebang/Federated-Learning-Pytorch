@@ -1,12 +1,18 @@
 import time
 import argparse
 import torch
-from utils import load_dataset, make_model, make_dataloader, split_dataset, make_evaluate_fn, save_model,\
+from utils import load_dataset, make_model, make_dataloader, split_dataset, make_evaluate_fn, save_model, \
     make_transforms, Logger, create_imbalance
 from core.fed_avg import FEDAVG
+from core.imbalance_fl import ImbalanceFL
 from torch.utils.tensorboard import SummaryWriter
+
 FEDERATED_LEARNERS = {
     'fed-avg': FEDAVG
+}
+
+PD_FEDERATED_LEARNERS = {
+    'imbalance-fl': ImbalanceFL
 }
 
 
@@ -18,8 +24,10 @@ def make_parser():
     parser.add_argument('--conv_hid_dims', type=str, default='64-64')
     parser.add_argument('--model', type=str, choices=['mlp', 'convnet', 'resnet'], default='convnet')
     parser.add_argument('--learner', type=str, choices=['fed-avg'], default='fed-avg')
+    parser.add_argument('--formulation', type=str, choices=['imbalance-fl'], default='imbalance-fl')
     parser.add_argument('--local_lr', type=float, default=0.1)
     parser.add_argument('--global_lr', type=float, default=1.)
+    parser.add_argument('--lambda_lr', type=float, default=1)
     parser.add_argument('--homo_ratio', type=float, default=1.)
     parser.add_argument('--n_workers', type=int, default=50)
     parser.add_argument('--n_workers_per_round', type=int, default=5)
@@ -28,13 +36,14 @@ def make_parser():
     parser.add_argument('--test_batch_size', type=int, default=200)
     parser.add_argument('--use_ray', action='store_true')
     parser.add_argument('--n_global_rounds', type=int, default=5000)
+    parser.add_argument('--n_pd_rounds', type=int, default=5000)
+    parser.add_argument('--n_p_steps', type=int, default=5)
     parser.add_argument('--eval_freq', type=int, default=1)
+    parser.add_argument('--tolerance_epsilon', type=float, default=1.)
     ################################################################
     # what to report in tensorboard
-    parser.add_argument('--test_metric', type=str, choices=['accuracy', 'class_wise_accuracy'], default='class_wise_accuracy')
-    ################################################################
-    # allow the clients to have different weights
-    parser.add_argument('--weighted', action='store_true')
+    parser.add_argument('--test_metric', type=str, choices=['accuracy', 'class_wise_accuracy'],
+                        default='class_wise_accuracy')
     ################################################################
     # create imbalance among classes
     parser.add_argument('--imbalance', action='store_true')
@@ -54,7 +63,7 @@ def main():
     if args.imbalance:
         dataset_train = create_imbalance(dataset_train, reduce_to_ratio=args.reduce_to_ratio)
 
-    transforms = make_transforms(args, train=True) # transforms for data augmentation and normalization
+    transforms = make_transforms(args, train=True)  # transforms for data augmentation and normalization
     local_datasets = split_dataset(args.n_workers, args.homo_ratio, dataset_train, transforms)
     local_dataloaders = [make_dataloader(args, local_dataset) for local_dataset in local_datasets]
 
@@ -71,34 +80,30 @@ def main():
     loss = torch.nn.functional.cross_entropy
     ts = time.time()
     if args.model == 'resnet':
-        tb_file = f'out/p_fl/{args.dataset}/resnet20/s{args.homo_ratio}' \
+        tb_file = f'out/pd_fl/{args.dataset}/resnet20/s{args.homo_ratio}' \
                   f'/N{args.n_workers}/rhog{args.local_lr}_{args.learner}_{ts}'
     else:
-        tb_file = f'out/p_fl/{args.dataset}/convnet/{args.conv_hid_dims}_{args.dense_hid_dims}/s{args.homo_ratio}' \
-              f'/N{args.n_workers}/rhog{args.local_lr}_{args.learner}_{ts}'
+        tb_file = f'out/pd_fl/{args.dataset}/convnet/{args.conv_hid_dims}_{args.dense_hid_dims}/s{args.homo_ratio}' \
+                  f'/N{args.n_workers}/rhog{args.local_lr}_{args.learner}_{ts}'
 
     print(f"writing to {tb_file}")
     writer = SummaryWriter(tb_file)
     logger = Logger(writer, test_fn, test_metric=args.test_metric)
-    # 4. run weighted FL
-    # todo: assign weights to different clients
+    # 4. run PD FL
 
-    if args.weighted:
-        weights = [1.] * args.n_workers
-        weights[0] = 2.
-    else:
-        weights = [1.] * args.n_workers
-    weights_sum = sum(weights)
-    weights = [weight/weights_sum*args.n_workers for weight in weights]
-
-
+    make_pd_fed_learner = PD_FEDERATED_LEARNERS[args.formulation]
     make_fed_learner = FEDERATED_LEARNERS[args.learner]
 
-    fed_learner = make_fed_learner(model, local_dataloaders, loss, logger, args, device)
+    fed_learner = make_fed_learner(model=model,
+                                   client_dataloaders=local_dataloaders,
+                                   loss=loss,
+                                   logger=None,
+                                   config=args,
+                                   device=device
+                                   )
+    pd_fed_learner = make_pd_fed_learner(fed_learner, args, logger)
 
-
-
-    fed_learner.fit(weights)
+    pd_fed_learner.fit()
 
     # # 4. save the model
     # save_model(args, fed_learner)
@@ -106,6 +111,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-

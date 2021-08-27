@@ -5,6 +5,8 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
 from model import convnet, mlp, resnet
+import ray
+
 
 DATASETS = {
     "cifar": datasets.CIFAR10,
@@ -45,32 +47,30 @@ def average_grad(grads):
 
 def weighted_sum_functions(models, weights):
     # ensure "weights" has unit sum
-    sum_weights = sum(weights)
-    weights = [weight/sum_weights for weight in weights]
+    # sum_weights = sum(weights)
+    # weights = [weight/sum_weights for weight in weights]
 
-    average_model = models[0]
+    average_model = models[-1]
     sds = [model.state_dict() for model in models]
     average_sd = sds[0]
     for key in sds[0]:
         # print(key, )
         if sds[0][key].dtype is torch.int64:
-            average_sd[key] = torch.sum(torch.stack([sd[key].float() * weight for sd, weight in zip(sds, weights)]), dim=0).to(torch.int64)
+            average_sd[key] = torch.sum(torch.stack([sd[key].float() * weight for sd, weight in zip(sds, weights)]),
+                                        dim=0).to(torch.int64)
         else:
             average_sd[key] = torch.sum(torch.stack([sd[key] * weight for sd, weight in zip(sds, weights)]), dim=0)
     average_model.load_state_dict(average_sd)
     return average_model
 
 
-
 def split_dataset(n_workers, homo_ratio, dataset: VisionDataset, transform=None):
-
     data = dataset.data
     label = dataset.targets
 
     # centralized case, no need to split
     if n_workers == 1:
         return [make_dataset(data, label, dataset.train, transform)]
-
 
     homo_ratio = homo_ratio
     n_workers = n_workers
@@ -91,7 +91,8 @@ def split_dataset(n_workers, homo_ratio, dataset: VisionDataset, transform=None)
         label_hetero_sorted, index = torch.sort(label_hetero)
         data_hetero_sorted = data_hetero[index]
 
-        data_hetero_list, label_hetero_list = np.split(data_hetero_sorted, n_workers), label_hetero_sorted.chunk(n_workers)
+        data_hetero_list, label_hetero_list = np.split(data_hetero_sorted, n_workers), label_hetero_sorted.chunk(
+            n_workers)
 
     if 0 < n_homo_data < n_data:
         data_list = [np.concatenate([data_homo, data_hetero], axis=0) for data_homo, data_hetero in
@@ -126,12 +127,14 @@ class LocalDataset(VisionDataset):
             sample = self.transform(sample)
         return sample, self.label[item]
 
+
 def make_dataset(data, label, train, transform):
     return LocalDataset(data, label, train, transform)
 
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+                                 std=[0.229, 0.224, 0.225])
+
 
 def make_transforms(args, train=True):
     if args.dataset == "cifar10":
@@ -176,7 +179,7 @@ def make_evaluate_fn(dataloader, device, eval_type="accuracy", n_classes=0):
                 pred = f_data.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
                 n_correct += pred.eq(label.view_as(pred)).sum().item()
                 n_data += data.shape[0]
-            return np.true_divide(n_correct, n_data)
+            return [np.true_divide(n_correct, n_data)]
     elif eval_type == "class_wise_accuracy":
         def evaluate_fn(model):
             correct_hist = torch.zeros(n_classes).to(device)
@@ -191,8 +194,8 @@ def make_evaluate_fn(dataloader, device, eval_type="accuracy", n_classes=0):
                 label_correct = label[correct_index]
                 correct_hist += torch.histc(label_correct, n_classes, max=n_classes)
 
-            correct_rate_hist = correct_hist/label_hist
-            return correct_rate_hist.cpu().numpy()
+            correct_rate_hist = correct_hist / label_hist
+            return [correct_rate_hist.cpu().numpy()]
     else:
         raise NotImplementedError
 
@@ -201,7 +204,6 @@ def make_evaluate_fn(dataloader, device, eval_type="accuracy", n_classes=0):
 
 def save_model(args, fed_learner):
     return
-
 
 
 def load_dataset(args):
@@ -243,30 +245,41 @@ def chunks(lst, n):
 
 
 class Logger:
-    def __init__(self, writer, print_result=False):
+    def __init__(self, writer, test_fn, test_metric='accuracy'):
         self.writer = writer
-        self.print_result = print_result
+        self.test_metric = test_metric
+        self.test_fn = test_fn
 
-    def log(self, step, accuracy):
-        if type(accuracy) == np.float64:
-            self.writer.add_scalar("correct rate vs round/test", accuracy, step)
-            if self.print_result:
-                print("Step %4d, accuracy %.3f" % (step, accuracy))
-
-        elif type(accuracy) == np.ndarray:
-            n_classes = len(accuracy)
-            for i in range(n_classes):
-                # the i th element is the accuracy for the test data with label i
-                self.writer.add_scalar(f"class-wise correct rate vs round/test/class_{i}", accuracy[i], step)
-            # the last element is the accuracy for the whole test set
-            # self.writer.add_scalar("correct rate vs round/test", accuracy[-1], step)
-            # if self.print_result:
-            #     print("Step %4d, accuracy %.3f" % (step, accuracy[-1]))
+    def log(self, step, model):
+        metric = self.test_fn(model)
+        if len(metric) == 1:
+            t_accuracy = metric[0]
+        elif len(metric) == 2:
+            t_accuracy, t_loss = metric
+        elif len(metric) == 4:
+            t_accuracy, t_loss, tr_accuracy, tr_loss = metric
         else:
             raise NotImplementedError
 
-def create_imbalance(dataset, reduce_classes=(0,), reduce_to_ratio=.2):
+        if self.test_metric == 'accuracy':
+            self.writer.add_scalar("correct rate vs round/test", t_accuracy, step)
+            if 't_loss' in locals(): self.writer.add_scalar("loss vs round/test", t_loss, step)
+            if 'tr_accuracy' in locals(): self.writer.add_scalar("correct rate vs round/train", tr_accuracy, step)
+            if 'tr_loss' in locals(): self.writer.add_scalar("loss vs round/train", tr_loss, step)
 
+        elif self.test_metric == 'class_wise_accuracy':
+            n_classes = len(t_accuracy)
+            for i in range(n_classes):
+                # the i th element is the accuracy for the test data with label i
+                self.writer.add_scalar(f"class-wise correct rate vs round/test/class_{i}", t_accuracy[i], step)
+                if 't_loss' in locals(): self.writer.add_scalar(f"class-wise loss vs round/test/class_{i}", t_loss[i], step)
+                if 'tr_accuracy' in locals(): self.writer.add_scalar(f"class-wise correct rate vs round/test/class_{i}", tr_accuracy[i], step)
+                if 'tr_loss' in locals(): self.writer.add_scalar(f"class-wise loss vs round/test/class_{i}", tr_loss[i], step)
+        else:
+            raise NotImplementedError
+
+
+def create_imbalance(dataset, reduce_classes=(0,), reduce_to_ratio=.2):
     data = dataset.data
     label = dataset.targets
 
@@ -275,20 +288,18 @@ def create_imbalance(dataset, reduce_classes=(0,), reduce_to_ratio=.2):
         reduce_mask = torch.logical_or(reduce_mask, label == reduce_class)
     preserve_mask = torch.logical_not(reduce_mask)
 
-
     label_reduce = label[reduce_mask]
     len_reduce = label_reduce.shape[0]
-    label_reduce = label_reduce[:max(1, int(len_reduce*reduce_to_ratio))]
+    label_reduce = label_reduce[:max(1, int(len_reduce * reduce_to_ratio))]
     label_preserve = label[preserve_mask]
 
     label = torch.cat([label_reduce, label_preserve], dim=0)
-
 
     preserve_mask_np = preserve_mask.numpy()
     reduce_mask_np = reduce_mask.numpy()
 
     data_reduce = data[reduce_mask_np]
-    data_reduce = data_reduce[:max(1, int(len_reduce*reduce_to_ratio))]
+    data_reduce = data_reduce[:max(1, int(len_reduce * reduce_to_ratio))]
     data_preserve = data[preserve_mask_np]
 
     data = np.concatenate([data_reduce, data_preserve], axis=0)
@@ -302,3 +313,24 @@ def create_imbalance(dataset, reduce_classes=(0,), reduce_to_ratio=.2):
     dataset.targets = label[rand_index]
 
     return dataset
+
+
+def _evaluate(loss_fn, device, model, dataloader):
+    loss = torch.zeros(1).to(device)
+    for data, label in dataloader:
+        data = data.to(device)
+        label = label.to(device)
+        loss += loss_fn(model(data), label)
+
+    return loss.item()
+
+
+@ray.remote(num_gpus=.3, num_cpus=4)
+def _evaluate_ray(loss_fn, device, model, dataloader):
+    loss = torch.zeros(1).to(device)
+    for data, label in dataloader:
+        data = data.to(device)
+        label = label.to(device)
+        loss += loss_fn(model(data), label)
+
+    return loss.item()
