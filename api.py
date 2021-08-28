@@ -9,13 +9,13 @@ class FedAlgorithm(object):
                  init_model,
                  client_dataloaders,
                  loss,
-                 logger,
+                 loggers,
                  config,
                  device
                  ):
         self.client_dataloaders = client_dataloaders
         self.loss = loss
-        self.logger = logger
+        self.loggers = loggers
         self.config = config
         self.device = device
         self.server_state = self.server_init(init_model)
@@ -45,8 +45,9 @@ class FedAlgorithm(object):
 
         for round in trange(n_rounds):
             self.server_state, self.client_states = self.step(self.server_state, self.client_states, weights)
-            if round % self.config.eval_freq == 0 and self.logger is not None:
-                self.logger.log(round, self.server_state.model)
+            if round % self.config.eval_freq == 0 and self.loggers is not None:
+                for logger in self.loggers:
+                    logger.log(round, self.server_state.model)
 
     # def reset_states(self):
     #     self.server_state = self.server_init()

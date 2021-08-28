@@ -64,7 +64,9 @@ def main():
 
     model = make_model(args, n_classes, n_channels, device)
 
-    test_fn = make_evaluate_fn(test_dataloader, device, eval_type=args.test_metric, n_classes=n_classes)
+    test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes)
+    test_fn_class_wise_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='class_wise_accuracy',
+                                                   n_classes=n_classes)
 
     # 3. prepare logger, loss
 
@@ -79,7 +81,9 @@ def main():
 
     print(f"writing to {tb_file}")
     writer = SummaryWriter(tb_file)
-    logger = Logger(writer, test_fn, test_metric=args.test_metric)
+    logger_accuracy = Logger(writer, test_fn_accuracy, test_metric='accuracy')
+    logger_class_wise_accuracy = Logger(writer, test_fn_class_wise_accuracy, test_metric='class_wise_accuracy')
+    loggers = [logger_accuracy, logger_class_wise_accuracy]
     # 4. run weighted FL
     # todo: assign weights to different clients
 
@@ -94,7 +98,7 @@ def main():
 
     make_fed_learner = FEDERATED_LEARNERS[args.learner]
 
-    fed_learner = make_fed_learner(model, local_dataloaders, loss, logger, args, device)
+    fed_learner = make_fed_learner(model, local_dataloaders, loss, loggers, args, device)
 
 
 
