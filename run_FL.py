@@ -21,6 +21,7 @@ def make_parser():
     parser.add_argument('--model', type=str, choices=['mlp', 'convnet', 'resnet'], default='convnet')
     parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-dyn'], default='fed-avg')
     parser.add_argument('--local_lr', type=float, default=0.1)
+    parser.add_argument('--alpha', type=float, default=.1)
     parser.add_argument('--global_lr', type=float, default=1.)
     parser.add_argument('--homo_ratio', type=float, default=1.)
     parser.add_argument('--n_workers', type=int, default=50)

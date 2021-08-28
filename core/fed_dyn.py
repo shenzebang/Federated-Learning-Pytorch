@@ -18,11 +18,10 @@ class FEDDYN(FedAlgorithm):
                  loss,
                  loggers,
                  config,
-                 device,
-                 alpha=0.01,  # alpha hyperparam
+                 device
                  ):
         super(FEDDYN, self).__init__(init_model, client_dataloaders, loss, loggers, config, device)
-        self.alpha = alpha
+        self.alpha = config.alpha
         self.n_workers = config.n_workers
         self.n_workers_per_round = config.n_workers_per_round
         if self.config.use_ray:
@@ -74,7 +73,7 @@ class FEDDYN(FedAlgorithm):
                 for client in clients_state]
 
 
-@ray.remote(num_gpus=.5)
+@ray.remote(num_gpus=.2)
 def client_step(config, loss_fn, device, client_state: FEDDYN_client_state, client_dataloader, alpha):
     f_local = copy.deepcopy(client_state.model)
     f_initial = copy.deepcopy(client_state.model)
