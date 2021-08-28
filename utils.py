@@ -50,6 +50,9 @@ def weighted_sum_functions(models, weights):
     # sum_weights = sum(weights)
     # weights = [weight/sum_weights for weight in weights]
 
+    if weights is None:
+        weights = [1./len(models)]*len(models)
+
     average_model = models[-1]
     sds = [model.state_dict() for model in models]
     average_sd = sds[0]
