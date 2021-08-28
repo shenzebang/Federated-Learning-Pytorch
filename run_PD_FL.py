@@ -35,7 +35,6 @@ def make_parser():
     parser.add_argument('--client_step_per_epoch', type=int, default=5)
     parser.add_argument('--test_batch_size', type=int, default=200)
     parser.add_argument('--use_ray', action='store_true')
-    parser.add_argument('--n_global_rounds', type=int, default=5000)
     parser.add_argument('--n_pd_rounds', type=int, default=5000)
     parser.add_argument('--n_p_steps', type=int, default=5)
     parser.add_argument('--eval_freq', type=int, default=1)
@@ -73,7 +72,8 @@ def main():
 
     model = make_model(args, n_classes, n_channels, device)
 
-    test_fn = make_evaluate_fn(test_dataloader, device, eval_type=args.test_metric, n_classes=n_classes)
+    test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes)
+    test_fn_class_wise_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='class_wise_accuracy', n_classes=n_classes)
 
     # 3. prepare logger, loss
 
@@ -88,7 +88,9 @@ def main():
 
     print(f"writing to {tb_file}")
     writer = SummaryWriter(tb_file)
-    logger = Logger(writer, test_fn, test_metric=args.test_metric)
+    logger_accuracy = Logger(writer, test_fn_accuracy, test_metric='accuracy')
+    logger_class_wise_accuracy = Logger(writer, test_fn_class_wise_accuracy, test_metric='class_wise_accuracy')
+    loggers = [logger_accuracy, logger_class_wise_accuracy]
     # 4. run PD FL
 
     make_pd_fed_learner = PD_FEDERATED_LEARNERS[args.formulation]
@@ -101,7 +103,7 @@ def main():
                                    config=args,
                                    device=device
                                    )
-    pd_fed_learner = make_pd_fed_learner(fed_learner, args, logger)
+    pd_fed_learner = make_pd_fed_learner(fed_learner, args, loggers)
 
     pd_fed_learner.fit()
 

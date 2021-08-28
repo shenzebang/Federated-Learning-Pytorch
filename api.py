@@ -85,9 +85,9 @@ class FedAlgorithm(object):
 
 class PrimalDualFedAlgorithm(object):
     # augment FedAlgorithm with additional dual updates
-    def __init__(self, primal_fed_algorithm: FedAlgorithm, config, logger):
+    def __init__(self, primal_fed_algorithm: FedAlgorithm, config, loggers=None):
         self.config = config
-        self.logger = logger
+        self.loggers = loggers
         # logger logs testing metrics of the current model
         self.primal_fed_algorithm = primal_fed_algorithm
         # self.primal_fed_algorithm is used to update the primal variable
@@ -97,8 +97,9 @@ class PrimalDualFedAlgorithm(object):
     def fit(self):
         for round in trange(self.config.n_pd_rounds):
             self.step()
-            if self.logger is not None:
-                self.logger.log(round * self.config.n_p_steps, self.server_state.model)
+            if self.loggers is not None:
+                for logger in self.loggers:
+                    logger.log(round * self.config.n_p_steps, self.server_state.model)
 
     def step(self):
         # update self.server_state
