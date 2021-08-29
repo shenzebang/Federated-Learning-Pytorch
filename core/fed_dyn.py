@@ -62,8 +62,8 @@ class FEDDYN(FedAlgorithm):
             model=weighted_sum_functions(
                 [client_state.model for client_state in active_clients] +
                 [server_state.model],
-                [(1 / self.n_workers_per_round) for client_state in active_clients] +
-                [-self.alpha]),
+                [(1. / self.n_workers_per_round) for client_state in active_clients] +
+                [-1./self.alpha]),
             h=h_new
         )
         return new_server_state
