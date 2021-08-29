@@ -55,7 +55,7 @@ class FEDDYN(FedAlgorithm):
             [client_state.model for client_state in active_clients] +
             [server_state.model],
             [1] +
-            [-self.alpha * self.n_workers for client_state in active_clients] +
+            [-self.alpha / self.n_workers for client_state in active_clients] +
             [self.alpha * self.n_workers_per_round / self.n_workers])
         new_server_state = FEDDYN_server_state(
             global_round=server_state.global_round + 1,
