@@ -31,7 +31,7 @@ class FEDDYN(FedAlgorithm):
         return FEDDYN_server_state(global_round=0, model=init_model, h=init_model)
 
     def client_init(self, server_state: FEDDYN_server_state, client_dataloader):
-        return FEDDYN_client_state(global_round=server_state.global_round, model=server_state.model, grad='None')
+        return FEDDYN_client_state(global_round=server_state.global_round, model=server_state.model, grad=None)
 
     def clients_step(self, clients_state, active_ids):
 
@@ -76,9 +76,9 @@ class FEDDYN(FedAlgorithm):
 @ray.remote(num_gpus=.2)
 def client_step(config, loss_fn, device, client_state: FEDDYN_client_state, client_dataloader, alpha):
     f_local = copy.deepcopy(client_state.model)
-    f_initial = copy.deepcopy(client_state.model)
+    f_initial = client_state.model
     f_local.requires_grad_(True)
-    grad_local = copy.deepcopy(client_state.grad)
+    grad_local = client_state.grad
 
     lr_decay = 1.
     # if client_state.global_round >= 1000:
@@ -95,9 +95,8 @@ def client_step(config, loss_fn, device, client_state: FEDDYN_client_state, clie
             label = label.to(device)
             loss = loss_fn(f_local(data), label)
 
-            # Now compute the internal product
-            if type(grad_local) == 'str':
-                lin_penalty = 0
+            # Now compute the inner product
+            if grad_local is not None:
                 curr_params = None
                 for theta in f_local.parameters():
                     if not isinstance(curr_params, torch.Tensor):
