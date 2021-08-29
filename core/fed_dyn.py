@@ -128,15 +128,14 @@ def client_step(config, loss_fn, device, client_state: FEDDYN_client_state, clie
             optimizer.step()
 
     # Update the previous gradients
-    if grad_local is None:
-        for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()):
-            if not isinstance(grad_local, torch.Tensor):
-                grad_local = (param_1 - param_2).view(-1) * - alpha
-            else:
-                grad_local = torch.cat((grad_local, (param_1 - param_2).view(-1) * - alpha), dim=0)
-    else:
-        for param_1, param_2, param_3 in zip(f_local.parameters(), f_initial.parameters(), grad_local):
-                param_3.add_(- alpha * (param_1 - param_2).view(-1))
+    grad_local_delta = None
+    for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()):
+        if not isinstance(grad_local_delta, torch.Tensor):
+            grad_local_delta = (param_1 - param_2).view(-1) * - alpha
+        else:
+            grad_local_delta = torch.cat((grad_local_delta, (param_1 - param_2).view(-1) * - alpha), dim=0)
+
+    grad_local = grad_local_delta if grad_local is None else grad_local + grad_local_delta
 
     return FEDDYN_client_state(global_round=client_state.global_round, model=f_local, grad=grad_local)
 
@@ -195,14 +194,13 @@ def _client_step(config, loss_fn, device, client_state: FEDDYN_client_state, cli
             optimizer.step()
 
     # Update the previous gradients
-    if grad_local is None:
-        for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()):
-            if not isinstance(grad_local, torch.Tensor):
-                grad_local = (param_1 - param_2).view(-1) * - alpha
-            else:
-                grad_local = torch.cat((grad_local, (param_1 - param_2).view(-1) * - alpha), dim=0)
-    else:
-        for param_1, param_2, param_3 in zip(f_local.parameters(), f_initial.parameters(), grad_local):
-            param_3.add_(- alpha * (param_1 - param_2).view(-1))
+    grad_local_delta = None
+    for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()):
+        if not isinstance(grad_local_delta, torch.Tensor):
+            grad_local_delta = (param_1 - param_2).view(-1) * - alpha
+        else:
+            grad_local_delta = torch.cat((grad_local_delta, (param_1 - param_2).view(-1) * - alpha), dim=0)
+
+    grad_local = grad_local_delta if grad_local is None else grad_local + grad_local_delta
 
     return FEDDYN_client_state(global_round=client_state.global_round, model=f_local, grad=grad_local)
