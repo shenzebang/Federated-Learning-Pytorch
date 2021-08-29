@@ -73,7 +73,7 @@ class FEDDYN(FedAlgorithm):
                 for client in clients_state]
 
 
-@ray.remote(num_gpus=.2)
+@ray.remote(num_gpus=.25)
 def client_step(config, loss_fn, device, client_state: FEDDYN_client_state, client_dataloader, alpha):
     f_local = copy.deepcopy(client_state.model)
     f_initial = client_state.model

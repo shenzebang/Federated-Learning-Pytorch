@@ -6,6 +6,7 @@ from torchvision import transforms
 from torchvision.datasets import VisionDataset
 from model import convnet, mlp, resnet
 import ray
+import copy
 
 
 DATASETS = {
@@ -53,7 +54,7 @@ def weighted_sum_functions(models, weights):
     if weights is None:
         weights = [1./len(models)]*len(models)
 
-    average_model = models[-1]
+    average_model = copy.deepcopy(models[0])
     sds = [model.state_dict() for model in models]
     average_sd = sds[0]
     for key in sds[0]:
