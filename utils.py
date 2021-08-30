@@ -74,7 +74,8 @@ def compute_model_delta(model_1, model_2):
 
     for key in sd1:
         sd1[key] = sd1[key] - sd2[key]
-    return sd1
+    model_1.load_state_dict(sd1)
+    return model_1
 
 def split_dataset(n_workers, homo_ratio, dataset: VisionDataset, transform=None):
     data = dataset.data
