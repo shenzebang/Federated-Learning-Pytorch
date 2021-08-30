@@ -73,14 +73,13 @@ class FedAlgorithm(object):
         if active_ids is None:
             active_ids = list(range(len(self.client_states)))
 
-        active_clients = zip([self.client_states[i] for i in active_ids],
-                             [self.client_dataloaders[i] for i in active_ids])
+        active_clients = [self.client_dataloaders[i] for i in active_ids]
         if self.config.use_ray:
-            clients_loss = ray.get([_evaluate_ray.remote(self.loss, self.device, client_state.model, client_dataloader)
-                                    for client_state, client_dataloader in active_clients])
+            clients_loss = ray.get([_evaluate_ray.remote(self.loss, self.device, self.server_state.model, client_dataloader)
+                                    for client_dataloader in active_clients])
         else:
-            clients_loss = [_evaluate(self.loss, self.device, client_state.model, client_dataloader)
-                            for client_state, client_dataloader in active_clients]
+            clients_loss = [_evaluate(self.loss, self.device, self.server_state.model, client_dataloader)
+                            for client_dataloader in active_clients]
         return clients_loss
 
 

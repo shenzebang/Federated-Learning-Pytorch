@@ -2,13 +2,13 @@ import torch
 import torch.optim as optim
 import copy
 from api import FedAlgorithm
-from utils import weighted_sum_functions
+from utils import weighted_sum_functions, compute_model_delta
 from collections import namedtuple
 from typing import List
 import ray
 
 FEDAVG_server_state = namedtuple("FEDAVG_server_state", ['global_round', 'model'])
-FEDAVG_client_state = namedtuple("FEDAVG_client_state", ['global_round', 'model'])
+FEDAVG_client_state = namedtuple("FEDAVG_client_state", ['global_round', 'model', 'model_delta'])
 
 
 class FEDAVG(FedAlgorithm):
@@ -27,7 +27,7 @@ class FEDAVG(FedAlgorithm):
         return FEDAVG_server_state(global_round=0, model=init_model)
 
     def client_init(self, server_state: FEDAVG_server_state, client_dataloader):
-        return FEDAVG_client_state(global_round=server_state.global_round, model=server_state.model)
+        return FEDAVG_client_state(global_round=server_state.global_round, model=server_state.model, model_delta=None)
 
     def clients_step(self, clients_state, active_ids):
 
@@ -42,14 +42,13 @@ class FEDAVG(FedAlgorithm):
             clients_state[i] = new_client_state
         return clients_state
 
-    def server_step(self, server_state: FEDAVG_server_state, client_states: FEDAVG_client_state, weights, active_ids):
-        # todo: add the implementation for non-uniform weight
+    def server_step(self, server_state: FEDAVG_server_state, client_states: List[FEDAVG_client_state], weights, active_ids):
         active_clients = [client_states[i] for i in active_ids]
 
-        # x(t+1) = x(t) + global_lr * 1/m * sum_i weights[i] (x_i(t+1) - x(t)), m = len(active_ids)
-        active_weights = [weights[i] * self.config.global_lr / len(active_ids) for i in active_ids]
-        new_model = weighted_sum_functions([client_state.model for client_state in active_clients] + [server_state.model],
-                                           active_weights+[1-self.config.global_lr * sum(active_weights)])
+        new_model = weighted_sum_functions([client_state.model_delta for client_state in active_clients] +
+                                           [server_state.model],
+                                           [weights[i] * self.config.global_lr / len(active_ids) for i in active_ids] +
+                                           [1.])
         # new_model = weighted_sum_functions([client.model for client in active_clients], active_weights)
         new_server_state = FEDAVG_server_state(
             global_round=server_state.global_round + 1,
@@ -58,7 +57,7 @@ class FEDAVG(FedAlgorithm):
         return new_server_state
 
     def clients_update(self, server_state: FEDAVG_server_state, clients_state: List[FEDAVG_client_state], active_ids):
-        return [FEDAVG_client_state(global_round=server_state.global_round, model=server_state.model) for _ in clients_state]
+        return [FEDAVG_client_state(global_round=server_state.global_round, model=server_state.model, model_delta=None) for _ in clients_state]
 
 
 @ray.remote(num_gpus=.3, num_cpus=4)
@@ -81,7 +80,10 @@ def client_step(config, loss_fn, device, client_state: FEDAVG_client_state, clie
             loss.backward()
             optimizer.step()
 
-    return FEDAVG_client_state(global_round=client_state.global_round, model=f_local)
+    model_delta = compute_model_delta(f_local, client_state.model)
+
+    # no need to return f_local
+    return FEDAVG_client_state(global_round=client_state.global_round, model=None, model_delta=model_delta)
 
 
 def _client_step(config, loss_fn, device, client_state: FEDAVG_client_state, client_dataloader):
@@ -102,4 +104,7 @@ def _client_step(config, loss_fn, device, client_state: FEDAVG_client_state, cli
             loss.backward()
             optimizer.step()
 
-    return FEDAVG_client_state(global_round=client_state.global_round, model=f_local)
+    model_delta = compute_model_delta(f_local, client_state.model)
+
+    # no need to return f_local
+    return FEDAVG_client_state(global_round=client_state.global_round, model=None, model_delta=model_delta)

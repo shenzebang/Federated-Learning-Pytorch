@@ -68,6 +68,14 @@ def weighted_sum_functions(models, weights):
     return average_model
 
 
+def compute_model_delta(model_1, model_2):
+    sd1 = model_1.state_dict()
+    sd2 = model_2.state_dict()
+
+    for key in sd1:
+        sd1[key] = sd1[key] - sd2[key]
+    return sd1
+
 def split_dataset(n_workers, homo_ratio, dataset: VisionDataset, transform=None):
     data = dataset.data
     label = dataset.targets
