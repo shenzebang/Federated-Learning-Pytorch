@@ -28,13 +28,12 @@ class FEDDYN(FedAlgorithm):
             ray.init()
 
     def server_init(self, init_model):
-        return FEDDYN_server_state(global_round=0, model=init_model, h=init_model)
+        return FEDDYN_server_state(global_round=0, model=init_model, h=None)
 
     def client_init(self, server_state: FEDDYN_server_state, client_dataloader):
         return FEDDYN_client_state(global_round=server_state.global_round, model=server_state.model, grad=None)
 
     def clients_step(self, clients_state, active_ids):
-
         active_clients = zip([clients_state[i] for i in active_ids], [self.client_dataloaders[i] for i in active_ids])
         if not self.config.use_ray:
             new_clients_state = [
@@ -50,13 +49,23 @@ class FEDDYN(FedAlgorithm):
 
     def server_step(self, server_state: FEDDYN_server_state, client_states: FEDDYN_client_state, weights, active_ids):
         active_clients = [client_states[i] for i in active_ids]
-        h_new = weighted_sum_functions(
-            [server_state.h] +
-            [client_state.model for client_state in active_clients] +
-            [server_state.model],
-            [1] +
-            [-self.alpha / self.n_workers for client_state in active_clients] +
-            [self.alpha * self.n_workers_per_round / self.n_workers])
+
+        if server_state.h is not None:
+            h_new = weighted_sum_functions(
+                [server_state.h] +
+                [client_state.model for client_state in active_clients] +
+                [server_state.model],
+                [1] +
+                [-self.alpha / self.n_workers for client_state in active_clients] +
+                [self.alpha * self.n_workers_per_round / self.n_workers])
+        else:
+            # h is None means h is all-zero
+            h_new = weighted_sum_functions(
+                [client_state.model for client_state in active_clients] +
+                [server_state.model],
+                [-self.alpha / self.n_workers for client_state in active_clients] +
+                [self.alpha * self.n_workers_per_round / self.n_workers])
+
         new_server_state = FEDDYN_server_state(
             global_round=server_state.global_round + 1,
             model=weighted_sum_functions(
@@ -97,6 +106,7 @@ def client_step(config, loss_fn, device, client_state: FEDDYN_client_state, clie
 
             # Now compute the inner product
             if grad_local is not None:
+                # grad_local is None means grad_local is all-zero
                 curr_params = None
                 for theta in f_local.parameters():
                     if not isinstance(curr_params, torch.Tensor):
@@ -128,6 +138,7 @@ def client_step(config, loss_fn, device, client_state: FEDDYN_client_state, clie
             optimizer.step()
 
     # Update the previous gradients
+    print(loss.item())
     grad_local_delta = None
     for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()):
         if not isinstance(grad_local_delta, torch.Tensor):
