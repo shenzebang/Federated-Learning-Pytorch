@@ -152,13 +152,19 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
 def make_transforms(args, train=True):
     if args.dataset == "cifar10":
         if train:
-            transform = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomCrop(32, padding=4),
-                transforms.ToTensor(),
-                normalize,
-            ])
+            if not args.no_data_augmentation:
+                transform = transforms.Compose([
+                    transforms.ToPILImage(),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.ToTensor(),
+                    normalize,
+                ])
+            else:
+                transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    normalize,
+                ])
         else:
             transform = transforms.Compose([
                 transforms.ToTensor(),
@@ -180,19 +186,22 @@ def make_dataloader(args, dataset: LocalDataset):
     return dataloader
 
 
-def make_evaluate_fn(dataloader, device, eval_type="accuracy", n_classes=0):
+def make_evaluate_fn(dataloader, device, eval_type="accuracy", n_classes=0, loss_fn=None):
     if eval_type == "accuracy":
         def evaluate_fn(model):
-            n_data = 0
-            n_correct = 0
-            for data, label in dataloader:
-                data = data.to(device)
-                label = label.to(device)
-                f_data = model(data)
-                pred = f_data.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-                n_correct += pred.eq(label.view_as(pred)).sum().item()
-                n_data += data.shape[0]
-            return [np.true_divide(n_correct, n_data)]
+            with torch.autograd.no_grad():
+                n_data = 0
+                n_correct = 0
+                loss = 0
+                for data, label in dataloader:
+                    data = data.to(device)
+                    label = label.to(device)
+                    f_data = model(data)
+                    loss += loss_fn(f_data, label).item() * data.shape[0]
+                    pred = f_data.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+                    n_correct += pred.eq(label.view_as(pred)).sum().item()
+                    n_data += data.shape[0]
+            return [np.true_divide(n_correct, n_data), np.true_divide(loss, n_data)]
     elif eval_type == "class_wise_accuracy":
         def evaluate_fn(model):
             correct_hist = torch.zeros(n_classes).to(device)

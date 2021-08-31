@@ -6,11 +6,13 @@ from utils import load_dataset, make_model, make_dataloader, split_dataset, make
 from core.fed_avg import FEDAVG
 from core.fed_dyn import FEDDYN
 from core.fed_pd import FEDPD
+from core.scaffold import SCAFFOLD
 from torch.utils.tensorboard import SummaryWriter
 FEDERATED_LEARNERS = {
     'fed-avg': FEDAVG,
     'fed-dyn': FEDDYN,
     'fed-pd' : FEDPD,
+    'scaffold': SCAFFOLD,
 }
 
 
@@ -21,7 +23,7 @@ def make_parser():
     parser.add_argument('--dense_hid_dims', type=str, default='384-192')
     parser.add_argument('--conv_hid_dims', type=str, default='64-64')
     parser.add_argument('--model', type=str, choices=['mlp', 'convnet', 'resnet'], default='convnet')
-    parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-dyn', 'fed-pd'], default='fed-avg')
+    parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-dyn', 'fed-pd', 'scaffold'], default='fed-avg')
     parser.add_argument('--local_lr', type=float, default=0.1)
     parser.add_argument('--alpha', type=float, default=.1)
     parser.add_argument('--eta', type=float, default=10)
@@ -44,6 +46,7 @@ def make_parser():
     ################################################################
     # create imbalance among classes
     parser.add_argument('--imbalance', action='store_true')
+    parser.add_argument('--no_data_augmentation', action='store_true')
     parser.add_argument('--reduce_to_ratio', type=float, default=1.)
     return parser
 
@@ -54,7 +57,7 @@ def main():
     print(args)
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
-
+    loss = torch.nn.functional.cross_entropy
     # 2. prepare the data set
     dataset_train, dataset_test, n_classes, n_channels = load_dataset(args)
     if args.imbalance:
@@ -70,13 +73,11 @@ def main():
 
     model = make_model(args, n_classes, n_channels, device)
 
-    test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes)
+    test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes, loss_fn=loss)
     test_fn_class_wise_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='class_wise_accuracy',
                                                    n_classes=n_classes)
 
-    # 3. prepare logger, loss
-
-    loss = torch.nn.functional.cross_entropy
+    # 3. prepare logger
     ts = time.time()
     if args.model == 'resnet':
         tb_file = f'out/p_fl/{args.dataset}/resnet20/s{args.homo_ratio}' \
