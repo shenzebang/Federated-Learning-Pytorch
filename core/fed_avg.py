@@ -81,7 +81,8 @@ def client_step(config, loss_fn, device, client_state: FEDAVG_client_state, clie
             optimizer.step()
 
     model_delta = compute_model_delta(f_local, client_state.model)
-
+    if config.use_gradient_clip:
+        model_delta = clip_model_delta(model_delta, config.gradient_clip_constant)
     # no need to return f_local
     return FEDAVG_client_state(global_round=client_state.global_round, model=None, model_delta=model_delta)
 
@@ -105,6 +106,19 @@ def _client_step(config, loss_fn, device, client_state: FEDAVG_client_state, cli
             optimizer.step()
 
     model_delta = compute_model_delta(f_local, client_state.model)
+    if config.use_gradient_clip:
+        model_delta = clip_model_delta(model_delta, config.gradient_clip_constant)
 
     # no need to return f_local
     return FEDAVG_client_state(global_round=client_state.global_round, model=None, model_delta=model_delta)
+
+
+def clip_model_delta(model_delta, threshold=1.):
+    sd = model_delta.state_dict()
+    total_norm = torch.norm(torch.stack([torch.norm(sd[key]) for key in sd])).item()
+    clip_coef = threshold / (total_norm + 1e-6)
+    if clip_coef < 1:
+        for key in sd:
+            sd[key].mul_(clip_coef)
+    model_delta.load_state_dict(sd)
+    return model_delta
