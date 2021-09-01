@@ -136,14 +136,17 @@ def _client_step(config, loss_fn, device, client_state: SCAFFOLD_client_state, c
     f_initial = client_state.model
 
     lr_decay = 1.
-    optimizer = SAGA(f_local.parameters(), client_state.c_i, client_state.c, lr=lr_decay * config.local_lr)
-
+    # optimizer = SAGA(f_local.parameters(), client_state.c_i, client_state.c, lr=lr_decay * config.local_lr)
+    optimizer = optim.SGD(f_local.parameters(), lr=config.local_lr)
     for epoch in range(config.local_epoch):
         for data, label in client_dataloader:
             optimizer.zero_grad()
             data = data.to(device)
             label = label.to(device)
             loss = loss_fn(f_local(data), label)
+
+            for param_1, param_2, param_3 in zip(client_state.c_i, client_state.c, f_local.parameters()):
+                loss += torch.sum(param_3 * (param_2 - param_1))
 
             loss.backward()
             if config.use_gradient_clip:
