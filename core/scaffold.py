@@ -105,9 +105,9 @@ def client_step(config, loss_fn, device, client_state: SCAFFOLD_client_state, cl
             data = data.to(device)
             label = label.to(device)
             loss = loss_fn(f_local(data), label)
-
             loss.backward()
-
+            if config.use_gradient_clip:
+                torch.nn.utils.clip_grad_norm_(f_local.parameters(), config.gradient_clip_constant)
             optimizer.step()
 
     # print(loss.item())
@@ -146,7 +146,8 @@ def _client_step(config, loss_fn, device, client_state: SCAFFOLD_client_state, c
             loss = loss_fn(f_local(data), label)
 
             loss.backward()
-
+            if config.use_gradient_clip:
+                torch.nn.utils.clip_grad_norm_(f_local.parameters(), config.gradient_clip_constant)
             optimizer.step()
 
     # print(loss.item())

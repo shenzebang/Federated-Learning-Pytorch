@@ -46,8 +46,12 @@ def make_parser():
     ################################################################
     # create imbalance among classes
     parser.add_argument('--imbalance', action='store_true')
-    parser.add_argument('--no_data_augmentation', action='store_true')
     parser.add_argument('--reduce_to_ratio', type=float, default=1.)
+
+    parser.add_argument('--no_data_augmentation', action='store_true')
+
+    parser.add_argument('--use_gradient_clip', action='store_true')
+    parser.add_argument('--gradient_clip_constant', type=float, default=1.)
     return parser
 
 
