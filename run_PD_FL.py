@@ -2,7 +2,7 @@ import time
 import argparse
 import torch
 from utils import load_dataset, make_model, make_dataloader, split_dataset, make_evaluate_fn, save_model, \
-    make_transforms, Logger, create_imbalance
+    make_transforms, Logger, create_imbalance, make_monitor_fn
 from core.fed_avg import FEDAVG
 from core.imbalance_fl import ImbalanceFL
 from torch.utils.tensorboard import SummaryWriter
@@ -64,7 +64,7 @@ def main():
     print(args)
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
-
+    loss = torch.nn.functional.cross_entropy
     # 2. prepare the data set
     dataset_train, dataset_test, n_classes, n_channels = load_dataset(args)
     if args.imbalance:
@@ -80,12 +80,12 @@ def main():
 
     model = make_model(args, n_classes, n_channels, device)
 
-    test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes)
+    test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes, loss_fn=loss)
     test_fn_class_wise_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='class_wise_accuracy', n_classes=n_classes)
+    statistics_monitor_fn = make_monitor_fn()
+    # 3. prepare logger
 
-    # 3. prepare logger, loss
 
-    loss = torch.nn.functional.cross_entropy
     ts = time.time()
     if args.model == 'resnet':
         tb_file = f'out/pd_fl/{args.dataset}/resnet20/s{args.homo_ratio}' \
@@ -98,7 +98,8 @@ def main():
     writer = SummaryWriter(tb_file)
     logger_accuracy = Logger(writer, test_fn_accuracy, test_metric='accuracy')
     logger_class_wise_accuracy = Logger(writer, test_fn_class_wise_accuracy, test_metric='class_wise_accuracy')
-    loggers = [logger_accuracy, logger_class_wise_accuracy]
+    logger_monitor = Logger(writer, statistics_monitor_fn, test_metric='model_monitor')
+    loggers = [logger_accuracy, logger_class_wise_accuracy, logger_monitor]
     # 4. run PD FL
 
     make_pd_fed_learner = PD_FEDERATED_LEARNERS[args.formulation]
