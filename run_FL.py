@@ -2,7 +2,7 @@ import time
 import argparse
 import torch
 from utils import load_dataset, make_model, make_dataloader, split_dataset, make_evaluate_fn, save_model,\
-    make_transforms, Logger, create_imbalance
+    make_transforms, Logger, create_imbalance, make_monitor_fn
 from core.fed_avg import FEDAVG
 from core.fed_dyn import FEDDYN
 from core.fed_pd import FEDPD
@@ -81,6 +81,7 @@ def main():
     test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes, loss_fn=loss)
     test_fn_class_wise_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='class_wise_accuracy',
                                                    n_classes=n_classes)
+    statistics_monitor_fn = make_monitor_fn()
 
     # 3. prepare logger
     ts = time.time()
@@ -95,7 +96,8 @@ def main():
     writer = SummaryWriter(tb_file)
     logger_accuracy = Logger(writer, test_fn_accuracy, test_metric='accuracy')
     logger_class_wise_accuracy = Logger(writer, test_fn_class_wise_accuracy, test_metric='class_wise_accuracy')
-    loggers = [logger_accuracy, logger_class_wise_accuracy]
+    logger_monitor = Logger(writer, statistics_monitor_fn, test_metric='model_monitor')
+    loggers = [logger_accuracy, logger_class_wise_accuracy, logger_monitor]
     # 4. run weighted FL
     # todo: assign weights to different clients
 

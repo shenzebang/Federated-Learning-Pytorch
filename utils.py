@@ -185,6 +185,12 @@ def make_dataloader(args, dataset: LocalDataset):
 
     return dataloader
 
+def make_monitor_fn():
+    def evaluate_fn(model):
+        param_norm = torch.norm(torch.stack([torch.norm(param) for param in model.parameters()]))
+        return [param_norm]
+    return evaluate_fn
+
 
 def make_evaluate_fn(dataloader, device, eval_type="accuracy", n_classes=0, loss_fn=None):
     if eval_type == "accuracy":
@@ -297,8 +303,11 @@ class Logger:
                 if 't_loss' in locals(): self.writer.add_scalar(f"class-wise loss vs round/test/class_{i}", t_loss[i], step)
                 if 'tr_accuracy' in locals(): self.writer.add_scalar(f"class-wise correct rate vs round/test/class_{i}", tr_accuracy[i], step)
                 if 'tr_loss' in locals(): self.writer.add_scalar(f"class-wise loss vs round/test/class_{i}", tr_loss[i], step)
+        elif self.test_metric == 'model_monitor':
+            self.writer.add_scalar("model param norm vs round", metric[0], step)
         else:
             raise NotImplementedError
+
 
 
 def create_imbalance(dataset, reduce_classes=(0,), reduce_to_ratio=.2):
