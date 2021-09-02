@@ -77,6 +77,9 @@ def client_step(config, loss_fn, device, client_state: FEDAVG_client_state, clie
             data = data.to(device)
             label = label.to(device)
             loss = loss_fn(f_local(data), label)
+            if config.l2_reg > 0:
+                l2_norm = torch.norm(torch.stack([torch.norm(param) for param in f_local.parameters()]))
+                loss += .5 * config.l2_reg * l2_norm ** 2
             loss.backward()
             optimizer.step()
 
@@ -102,6 +105,9 @@ def _client_step(config, loss_fn, device, client_state: FEDAVG_client_state, cli
             data = data.to(device)
             label = label.to(device)
             loss = loss_fn(f_local(data), label)
+            if config.l2_reg > 0:
+                l2_norm = torch.norm(torch.stack([torch.norm(param) for param in f_local.parameters()]))
+                loss += .5 * config.l2_reg * l2_norm ** 2
             loss.backward()
             optimizer.step()
 
