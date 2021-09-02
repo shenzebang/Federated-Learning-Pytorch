@@ -27,6 +27,9 @@ def make_parser():
     parser.add_argument('--formulation', type=str, choices=['imbalance-fl'], default='imbalance-fl')
     parser.add_argument('--local_lr', type=float, default=0.1)
     parser.add_argument('--global_lr', type=float, default=1.)
+    parser.add_argument('--alpha', type=float, default=.1)
+    parser.add_argument('--eta', type=float, default=10)
+    parser.add_argument('--l2_reg', type=float, default=-1.)
     parser.add_argument('--lambda_lr', type=float, default=1)
     parser.add_argument('--homo_ratio', type=float, default=1.)
     parser.add_argument('--n_workers', type=int, default=50)
@@ -47,6 +50,11 @@ def make_parser():
     # create imbalance among classes
     parser.add_argument('--imbalance', action='store_true')
     parser.add_argument('--reduce_to_ratio', type=float, default=1.)
+    # disable the data augmentation
+    parser.add_argument('--no_data_augmentation', action='store_true')
+    # gradient clip for scaffold may not be correct. removed temporarily
+    parser.add_argument('--use_gradient_clip', action='store_true')
+    parser.add_argument('--gradient_clip_constant', type=float, default=5.)
     return parser
 
 
