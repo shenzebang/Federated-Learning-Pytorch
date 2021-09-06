@@ -68,14 +68,14 @@ class FEDPD(FedAlgorithm):
                 for client in clients_state]
 
 
-@ray.remote(num_gpus=.3, num_cpus=4)
+@ray.remote(num_gpus=.25)
 def client_step(config, loss_fn, device, client_state: FEDPD_client_state, client_dataloader, eta):
     f_local = copy.deepcopy(client_state.model)
     f_initial = client_state.model
     f_local.requires_grad_(True)
 
     lr_decay = 1.
-    optimizer = MYOPT(f_local.parameters(), lr=lr_decay * config.local_lr)
+    optimizer = MYOPT(f_local.parameters(), lambda_var=client_state.lambda_var, lr=lr_decay * config.local_lr)
 
     for epoch in range(config.local_epoch):
         for data, label in client_dataloader:
@@ -94,20 +94,19 @@ def client_step(config, loss_fn, device, client_state: FEDPD_client_state, clien
             # Now take loss
             loss.backward()
 
-            optimizer.step(client_state.lambda_var)
+            optimizer.step()
 
     # Update the dual variable
-
-    print(loss.item())
+    # print(loss.item())
     with torch.autograd.no_grad():
-        lambda_delta = None
-        for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()):
-            if not isinstance(lambda_delta, torch.Tensor):
-                lambda_delta = (param_1 - param_2).view(-1) / eta
-            else:
-                lambda_delta = torch.cat((lambda_delta, (param_1 - param_2).view(-1) / eta), dim=0)
 
-        lambda_var = lambda_delta if client_state.lambda_var is None else client_state.lambda_var + lambda_delta
+        lambda_delta = tuple(
+            (param_1 - param_2) / eta for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()))
+
+        if client_state.lambda_var is None:
+            lambda_var = lambda_delta
+        else:
+            lambda_var = tuple((param_1 + param_2) for param_1, param_2 in zip(client_state.lambda_var, lambda_delta))
 
         # update f_local
         sd = f_local.state_dict()
@@ -124,7 +123,7 @@ def _client_step(config, loss_fn, device, client_state: FEDPD_client_state, clie
     f_local.requires_grad_(True)
 
     lr_decay = 1.
-    optimizer = MYOPT(f_local.parameters(), lr=lr_decay * config.local_lr)
+    optimizer = MYOPT(f_local.parameters(), lambda_var=client_state.lambda_var, lr=lr_decay * config.local_lr)
 
     for epoch in range(config.local_epoch):
         for data, label in client_dataloader:
@@ -143,20 +142,18 @@ def _client_step(config, loss_fn, device, client_state: FEDPD_client_state, clie
             # Now take loss
             loss.backward()
 
-            optimizer.step(client_state.lambda_var)
+            optimizer.step()
 
     # Update the dual variable
-    print(loss.item())
+    # print(loss.item())
     with torch.autograd.no_grad():
 
-        lambda_delta = None
-        for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()):
-            if not isinstance(lambda_delta, torch.Tensor):
-                lambda_delta = (param_1 - param_2).view(-1) / eta
-            else:
-                lambda_delta = torch.cat((lambda_delta, (param_1 - param_2).view(-1) / eta), dim=0)
+        lambda_delta = tuple((param_1 - param_2) / eta for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()))
 
-        lambda_var = lambda_delta if client_state.lambda_var is None else client_state.lambda_var + lambda_delta
+        if client_state.lambda_var is None:
+            lambda_var = lambda_delta
+        else:
+            lambda_var = tuple((param_1 + param_2) for param_1, param_2 in zip(client_state.lambda_var, lambda_delta))
 
         # update f_local
         sd = f_local.state_dict()
@@ -168,15 +165,16 @@ def _client_step(config, loss_fn, device, client_state: FEDPD_client_state, clie
 
 
 class MYOPT(Optimizer):
-    def __init__(self, params, lr=1e-3):
+    def __init__(self, params, lambda_var, lr=1e-3):
         defaults = dict(lr=lr)
         super(MYOPT, self).__init__(params, defaults)
+        self.lambda_var = lambda_var
 
     @torch.no_grad()
-    def step(self, lambda_var):
-        if lambda_var is not None:
+    def step(self):
+        if self.lambda_var is not None:
             for p_group in self.param_groups:
-                for p, l in zip(p_group['params'], lambda_var):
+                for p, l in zip(p_group['params'], self.lambda_var):
                     if p.grad is None:
                         continue
                     d_p = p.grad
