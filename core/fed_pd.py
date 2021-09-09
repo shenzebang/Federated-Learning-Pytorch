@@ -12,7 +12,7 @@ from torch.optim.optimizer import Optimizer
 
 
 FEDPD_server_state = namedtuple("FEDPD_server_state", ['global_round', 'model'])
-FEDPD_client_state = namedtuple("FEDPD_client_state", ['global_round', 'model', 'lambda_var'])
+FEDPD_client_state = namedtuple("FEDPD_client_state", ['global_round', 'model', 'lambda_var', 'model_delta'])
 
 
 class FEDPD(FedAlgorithm):
@@ -51,22 +51,24 @@ class FEDPD(FedAlgorithm):
         return clients_state
 
     def server_step(self, server_state: FEDPD_server_state, client_states: FEDPD_client_state, weights, active_ids):
-        # todo: implement the weighted version
+        # todo: implement the partial-participating version
         active_clients = [client_states[i] for i in active_ids]
+
+        new_model = weighted_sum_functions([client_state.model_delta for client_state in active_clients] +
+                                           [server_state.model],
+                                           [weights[i] * self.config.global_lr / len(active_ids) for i in active_ids] +
+                                           [1.])
+
 
         new_server_state = FEDPD_server_state(
             global_round=server_state.global_round + 1,
-            model=weighted_sum_functions(
-                [client_state.model for client_state in active_clients],
-                [(1. / self.n_workers_per_round)] * len(active_clients)
-            )
+            model=new_model
         )
         return new_server_state
 
     def clients_update(self, server_state: FEDPD_server_state, clients_state: List[FEDPD_client_state], active_ids):
-        return [FEDPD_client_state(global_round=server_state.global_round, model=server_state.model, lambda_var=client.lambda_var)
+        return [FEDPD_client_state(global_round=server_state.global_round, model=server_state.model, lambda_var=client.lambda_var, model_delta=None)
                 for client in clients_state]
-
 
 
 def client_step(config, loss_fn, device, client_state: FEDPD_client_state, client_dataloader, eta):
@@ -98,6 +100,7 @@ def client_step(config, loss_fn, device, client_state: FEDPD_client_state, clien
 
             # Now take loss
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(parameters=f_local.parameters(), max_norm=config.gradient_clip_constant) # Clip gradients
 
             optimizer.step()
 
@@ -106,20 +109,21 @@ def client_step(config, loss_fn, device, client_state: FEDPD_client_state, clien
     with torch.autograd.no_grad():
 
         lambda_delta = tuple(
-            (param_1 - param_2) / eta for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()))
+            (param_1 - param_2) / eta * config.fed_pd_dual_lr for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()))
 
         if client_state.lambda_var is None:
             lambda_var = lambda_delta
         else:
             lambda_var = tuple((param_1 + param_2) for param_1, param_2 in zip(client_state.lambda_var, lambda_delta))
 
-        # update f_local
+        # compute model_delta, stored in f_local.
         sd = f_local.state_dict()
         for key, param in zip(sd, lambda_var):
-            sd[key] = sd[key] + eta * param
+            sd[key] = eta * param
         f_local.load_state_dict(sd)
 
-    return FEDPD_client_state(global_round=client_state.global_round, model=f_local, lambda_var=lambda_var)
+    # model is not used. Only model_delta is used.
+    return FEDPD_client_state(global_round=client_state.global_round, model=None, lambda_var=lambda_var, model_delta=f_local)
 
 @ray.remote(num_gpus=.25)
 def ray_dispatch(config, loss_fn, device, client_state: FEDPD_client_state, client_dataloader, eta):
