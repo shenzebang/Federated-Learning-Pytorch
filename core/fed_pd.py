@@ -40,11 +40,11 @@ class FEDPD(FedAlgorithm):
         active_clients = zip([clients_state[i] for i in active_ids], [self.client_dataloaders[i] for i in active_ids])
         if not self.config.use_ray:
             new_clients_state = [
-                _client_step(self.config, self.loss, self.device, client_state, client_dataloader, self.eta)
+                client_step(self.config, self.loss, self.device, client_state, client_dataloader, self.eta)
                 for client_state, client_dataloader in active_clients]
         else:
             new_clients_state = ray.get(
-                [client_step.remote(self.config, self.loss, self.device, client_state, client_dataloader, self.eta)
+                [ray_dispatch.remote(self.config, self.loss, self.device, client_state, client_dataloader, self.eta)
                  for client_state, client_dataloader in active_clients])
         for i, new_client_state in zip(active_ids, new_clients_state):
             clients_state[i] = new_client_state
@@ -68,14 +68,14 @@ class FEDPD(FedAlgorithm):
                 for client in clients_state]
 
 
-@ray.remote(num_gpus=.25)
+
 def client_step(config, loss_fn, device, client_state: FEDPD_client_state, client_dataloader, eta):
     f_local = copy.deepcopy(client_state.model)
     f_initial = client_state.model
     f_local.requires_grad_(True)
 
     lr_decay = 1.
-    optimizer = MYOPT(f_local.parameters(), lambda_var=client_state.lambda_var, lr=lr_decay * config.local_lr)
+    optimizer = torch.optim.SGD(f_local.parameters(), lr=config.local_lr, weight_decay=config.weight_decay)
 
     for epoch in range(config.local_epoch):
         for data, label in client_dataloader:
@@ -84,7 +84,12 @@ def client_step(config, loss_fn, device, client_state: FEDPD_client_state, clien
             label = label.to(device)
             loss = loss_fn(f_local(data), label)
 
-            # Now compute the quadratic part
+            if client_state.lambda_var is not None:
+                linear_penalty = 0.
+                for param_1, param_2 in zip(f_local.parameters(), client_state.lambda_var):
+                    linear_penalty += torch.sum(param_1 * param_2)
+                loss += linear_penalty
+
             quad_penalty = 0.0
             for theta, theta_init in zip(f_local.parameters(), f_initial.parameters()):
                 quad_penalty += F.mse_loss(theta, theta_init, reduction='sum')
@@ -116,77 +121,6 @@ def client_step(config, loss_fn, device, client_state: FEDPD_client_state, clien
 
     return FEDPD_client_state(global_round=client_state.global_round, model=f_local, lambda_var=lambda_var)
 
-
-def _client_step(config, loss_fn, device, client_state: FEDPD_client_state, client_dataloader, eta):
-    f_local = copy.deepcopy(client_state.model)
-    f_initial = client_state.model
-    f_local.requires_grad_(True)
-
-    lr_decay = 1.
-    optimizer = MYOPT(f_local.parameters(), lambda_var=client_state.lambda_var, lr=lr_decay * config.local_lr)
-
-    for epoch in range(config.local_epoch):
-        for data, label in client_dataloader:
-            optimizer.zero_grad()
-            data = data.to(device)
-            label = label.to(device)
-            loss = loss_fn(f_local(data), label)
-
-            # Now compute the quadratic part
-            quad_penalty = 0.0
-            for theta, theta_init in zip(f_local.parameters(), f_initial.parameters()):
-                quad_penalty += F.mse_loss(theta, theta_init, reduction='sum')
-
-            loss += quad_penalty / 2. / eta
-
-            # Now take loss
-            loss.backward()
-
-            optimizer.step()
-
-    # Update the dual variable
-    # print(loss.item())
-    with torch.autograd.no_grad():
-
-        lambda_delta = tuple((param_1 - param_2) / eta for param_1, param_2 in zip(f_local.parameters(), f_initial.parameters()))
-
-        if client_state.lambda_var is None:
-            lambda_var = lambda_delta
-        else:
-            lambda_var = tuple((param_1 + param_2) for param_1, param_2 in zip(client_state.lambda_var, lambda_delta))
-
-        # update f_local
-        sd = f_local.state_dict()
-        for key, param in zip(sd, lambda_var):
-            sd[key] = sd[key] + eta * param
-        f_local.load_state_dict(sd)
-
-    return FEDPD_client_state(global_round=client_state.global_round, model=f_local, lambda_var=lambda_var)
-
-
-class MYOPT(Optimizer):
-    def __init__(self, params, lambda_var, lr=1e-3):
-        defaults = dict(lr=lr)
-        super(MYOPT, self).__init__(params, defaults)
-        self.lambda_var = lambda_var
-
-    @torch.no_grad()
-    def step(self):
-        if self.lambda_var is not None:
-            for p_group in self.param_groups:
-                for p, l in zip(p_group['params'], self.lambda_var):
-                    if p.grad is None:
-                        continue
-                    d_p = p.grad
-
-                    p.add_(d_p + l, alpha=-p_group['lr'])
-        else:
-            for p_group in self.param_groups:
-                for p in p_group['params']:
-                    if p.grad is None:
-                        continue
-                    d_p = p.grad
-
-                    p.add_(d_p, alpha=-p_group['lr'])
-
-        return True
+@ray.remote(num_gpus=.25)
+def ray_dispatch(config, loss_fn, device, client_state: FEDPD_client_state, client_dataloader, eta):
+    return client_step(config, loss_fn, device, client_state, client_dataloader, eta)

@@ -42,6 +42,7 @@ def make_parser():
     parser.add_argument('--n_p_steps', type=int, default=5)
     parser.add_argument('--eval_freq', type=int, default=1)
     parser.add_argument('--tolerance_epsilon', type=float, default=1.)
+    parser.add_argument('--weight_decay', type=float, default=1e-3)
     ################################################################
     # what to report in tensorboard
     parser.add_argument('--test_metric', type=str, choices=['accuracy', 'class_wise_accuracy'],

@@ -4,13 +4,12 @@ import torch
 from utils import load_dataset, make_model, make_dataloader, split_dataset, make_evaluate_fn, save_model,\
     make_transforms, Logger, create_imbalance, make_monitor_fn
 from core.fed_avg import FEDAVG
-from core.fed_dyn import FEDDYN
 from core.fed_pd import FEDPD
 from core.scaffold import SCAFFOLD
+
 from torch.utils.tensorboard import SummaryWriter
 FEDERATED_LEARNERS = {
     'fed-avg': FEDAVG,
-    'fed-dyn': FEDDYN,
     'fed-pd' : FEDPD,
     'scaffold': SCAFFOLD,
 }
@@ -23,7 +22,7 @@ def make_parser():
     parser.add_argument('--dense_hid_dims', type=str, default='384-192')
     parser.add_argument('--conv_hid_dims', type=str, default='64-64')
     parser.add_argument('--model', type=str, choices=['mlp', 'convnet', 'resnet'], default='convnet')
-    parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-dyn', 'fed-pd', 'scaffold'], default='fed-avg')
+    parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-pd', 'scaffold'], default='fed-avg')
     parser.add_argument('--local_lr', type=float, default=0.1)
     parser.add_argument('--alpha', type=float, default=.1)
     parser.add_argument('--eta', type=float, default=10)
@@ -38,6 +37,7 @@ def make_parser():
     parser.add_argument('--use_ray', action='store_true')
     parser.add_argument('--n_global_rounds', type=int, default=5000)
     parser.add_argument('--eval_freq', type=int, default=1)
+    parser.add_argument('--weight_decay', type=float, default=1e-3)
     ################################################################
     # what to report in tensorboard
     parser.add_argument('--test_metric', type=str, choices=['accuracy', 'class_wise_accuracy'], default='class_wise_accuracy')
@@ -64,6 +64,8 @@ def main():
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     loss = torch.nn.functional.cross_entropy
     # 2. prepare the data set
+
+
     dataset_train, dataset_test, n_classes, n_channels = load_dataset(args)
     if args.imbalance:
         dataset_train = create_imbalance(dataset_train, reduce_to_ratio=args.reduce_to_ratio)
@@ -98,9 +100,8 @@ def main():
     logger_class_wise_accuracy = Logger(writer, test_fn_class_wise_accuracy, test_metric='class_wise_accuracy')
     logger_monitor = Logger(writer, statistics_monitor_fn, test_metric='model_monitor')
     loggers = [logger_accuracy, logger_class_wise_accuracy, logger_monitor]
-    # 4. run weighted FL
-    # todo: assign weights to different clients
 
+    # 4. run weighted FL
     if args.weighted:
         weights = [1.] * args.n_workers
         weights[0] = 2.
