@@ -34,7 +34,7 @@ class FEDPD(FedAlgorithm):
         return FEDPD_server_state(global_round=0, model=init_model)
 
     def client_init(self, server_state: FEDPD_server_state, client_dataloader):
-        return FEDPD_client_state(global_round=server_state.global_round, model=server_state.model, lambda_var=None)
+        return FEDPD_client_state(global_round=server_state.global_round, model=server_state.model, lambda_var=None, model_delta=None)
 
     def clients_step(self, clients_state, active_ids):
         active_clients = zip([clients_state[i] for i in active_ids], [self.client_dataloaders[i] for i in active_ids])
