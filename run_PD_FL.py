@@ -30,7 +30,10 @@ def make_parser():
     parser.add_argument('--local_lr', type=float, default=0.1)
     parser.add_argument('--global_lr', type=float, default=1.)
     parser.add_argument('--alpha', type=float, default=.1)
+    # parameters for fed-pd
     parser.add_argument('--eta', type=float, default=10)
+    parser.add_argument('--fed_pd_dual_lr', type=float, default=1)
+
     parser.add_argument('--l2_reg', type=float, default=-1.)
     parser.add_argument('--lambda_lr', type=float, default=1)
     parser.add_argument('--homo_ratio', type=float, default=1.)
