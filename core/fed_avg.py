@@ -15,11 +15,11 @@ class FEDAVG(FedAlgorithm):
     def __init__(self, init_model,
                  client_dataloaders,
                  loss,
-                 logger,
+                 loggers,
                  config,
                  device
                  ):
-        super(FEDAVG, self).__init__(init_model, client_dataloaders, loss, logger, config, device)
+        super(FEDAVG, self).__init__(init_model, client_dataloaders, loss, loggers, config, device)
         if self.config.use_ray:
             ray.init()
 

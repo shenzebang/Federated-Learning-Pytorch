@@ -111,7 +111,7 @@ def main():
     fed_learner = make_fed_learner(init_model=model,
                                    client_dataloaders=local_dataloaders,
                                    loss=loss,
-                                   logger=None,
+                                   loggers=None,
                                    config=args,
                                    device=device
                                    )
