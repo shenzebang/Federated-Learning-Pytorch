@@ -12,14 +12,14 @@ FEDAVG_client_state = namedtuple("FEDAVG_client_state", ['global_round', 'model'
 
 
 class FEDAVG(FedAlgorithm):
-    def __init__(self, model,
+    def __init__(self, init_model,
                  client_dataloaders,
                  loss,
                  logger,
                  config,
                  device
                  ):
-        super(FEDAVG, self).__init__(model, client_dataloaders, loss, logger, config, device)
+        super(FEDAVG, self).__init__(init_model, client_dataloaders, loss, logger, config, device)
         if self.config.use_ray:
             ray.init()
 

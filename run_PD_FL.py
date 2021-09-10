@@ -108,7 +108,7 @@ def main():
     make_pd_fed_learner = PD_FEDERATED_LEARNERS[args.formulation]
     make_fed_learner = FEDERATED_LEARNERS[args.learner]
 
-    fed_learner = make_fed_learner(model=model,
+    fed_learner = make_fed_learner(init_model=model,
                                    client_dataloaders=local_dataloaders,
                                    loss=loss,
                                    logger=None,
