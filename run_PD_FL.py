@@ -4,6 +4,7 @@ import torch
 from utils import load_dataset, make_model, make_dataloader, split_dataset, make_evaluate_fn, save_model, \
     make_transforms, Logger, create_imbalance, make_monitor_fn
 from core.fed_avg import FEDAVG
+from core.fed_pd import FEDPD
 from core.imbalance_fl import ImbalanceFL
 from torch.utils.tensorboard import SummaryWriter
 
@@ -23,7 +24,7 @@ def make_parser():
     parser.add_argument('--dense_hid_dims', type=str, default='384-192')
     parser.add_argument('--conv_hid_dims', type=str, default='64-64')
     parser.add_argument('--model', type=str, choices=['mlp', 'convnet', 'resnet'], default='convnet')
-    parser.add_argument('--learner', type=str, choices=['fed-avg'], default='fed-avg')
+    parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-pd'], default='fed-pd')
     parser.add_argument('--formulation', type=str, choices=['imbalance-fl'], default='imbalance-fl')
     parser.add_argument('--local_lr', type=float, default=0.1)
     parser.add_argument('--global_lr', type=float, default=1.)

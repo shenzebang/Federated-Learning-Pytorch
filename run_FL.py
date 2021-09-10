@@ -37,6 +37,8 @@ def make_parser():
     parser.add_argument('--use_ray', action='store_true')
     parser.add_argument('--n_global_rounds', type=int, default=5000)
     parser.add_argument('--eval_freq', type=int, default=1)
+    ################################################################
+    # weight decay improves the testing accuracy
     parser.add_argument('--weight_decay', type=float, default=1e-3)
     ################################################################
     # what to report in tensorboard

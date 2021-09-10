@@ -42,11 +42,11 @@ class SCAFFOLD(FedAlgorithm):
         active_clients = zip([clients_state[i] for i in active_ids], [self.client_dataloaders[i] for i in active_ids])
         if not self.config.use_ray:
             new_clients_state = [
-                _client_step(self.config, self.loss, self.device, client_state, client_dataloader)
+                client_step(self.config, self.loss, self.device, client_state, client_dataloader)
                 for client_state, client_dataloader in active_clients]
         else:
             new_clients_state = ray.get(
-                [client_step.remote(self.config, self.loss, self.device, client_state, client_dataloader)
+                [ray_dispatch.remote(self.config, self.loss, self.device, client_state, client_dataloader)
                  for client_state, client_dataloader in active_clients])
         for i, new_client_state in zip(active_ids, new_clients_state):
             clients_state[i] = new_client_state
@@ -90,14 +90,20 @@ class SCAFFOLD(FedAlgorithm):
             for client in clients_state]
 
 
-@ray.remote(num_gpus=.3, num_cpus=4)
+@ray.remote(num_gpus=.25)
+def ray_dispatch(config, loss_fn, device, client_state: SCAFFOLD_client_state, client_dataloader):
+    return client_step(config, loss_fn, device, client_state, client_dataloader)
+
+
 def client_step(config, loss_fn, device, client_state: SCAFFOLD_client_state, client_dataloader):
     f_local = copy.deepcopy(client_state.model)
     f_local.requires_grad_(True)
     f_initial = client_state.model
 
-    lr_decay = 1.
-    optimizer = SAGA(f_local.parameters(), client_state.c_i, client_state.c, lr=lr_decay * config.local_lr)
+    optimizer = torch.optim.SGD(f_local.parameters(), lr=config.local_lr, weight_decay=config.weight_decay)
+
+    # c_i - c
+    c_i_c = tuple(param_1 - param_2 for param_1, param_2 in zip(client_state.c_i, client_state.c))
 
     for epoch in range(config.local_epoch):
         for data, label in client_dataloader:
@@ -105,6 +111,14 @@ def client_step(config, loss_fn, device, client_state: SCAFFOLD_client_state, cl
             data = data.to(device)
             label = label.to(device)
             loss = loss_fn(f_local(data), label)
+
+            # add the linear term:
+            loss_linear = 0.
+            for param_1, param_2 in zip(f_local.parameters(), c_i_c):
+                loss_linear -= torch.sum(param_1 * param_2)
+
+            loss += loss_linear
+
             loss.backward()
             # if config.use_gradient_clip:
             #     torch.nn.utils.clip_grad_norm_(f_local.parameters(), config.gradient_clip_constant)
@@ -116,9 +130,9 @@ def client_step(config, loss_fn, device, client_state: SCAFFOLD_client_state, cl
     with torch.autograd.no_grad():
         model_delta = compute_model_delta(f_local, f_initial)
         new_c_i = []
-        for param_1, param_2, param_3 in zip(client_state.c_i, client_state.c, model_delta.parameters()):
+        for param_1, param_2 in zip(c_i_c, model_delta.parameters()):
             new_c_i.append(
-                param_1 - param_2 - param_3 / config.local_lr / config.local_epoch / config.client_step_per_epoch)
+                param_1 - param_2 / config.local_lr / config.local_epoch / config.client_step_per_epoch)
         new_c_i = tuple(new_c_i)
         c_i_delta = []
         for param_1, param_2 in zip(new_c_i, client_state.c_i):
@@ -128,67 +142,3 @@ def client_step(config, loss_fn, device, client_state: SCAFFOLD_client_state, cl
     # no need to return f_local and c
     return SCAFFOLD_client_state(global_round=client_state.global_round, model=None, model_delta=model_delta,
                                  c_i=new_c_i, c_i_delta=c_i_delta, c=None)
-
-
-def _client_step(config, loss_fn, device, client_state: SCAFFOLD_client_state, client_dataloader):
-    f_local = copy.deepcopy(client_state.model)
-    f_local.requires_grad_(True)
-    f_initial = client_state.model
-
-    lr_decay = 1.
-    # optimizer = SAGA(f_local.parameters(), client_state.c_i, client_state.c, lr=lr_decay * config.local_lr)
-    optimizer = optim.SGD(f_local.parameters(), lr=config.local_lr)
-    for epoch in range(config.local_epoch):
-        for data, label in client_dataloader:
-            optimizer.zero_grad()
-            data = data.to(device)
-            label = label.to(device)
-            loss = loss_fn(f_local(data), label)
-
-            for param_1, param_2, param_3 in zip(client_state.c_i, client_state.c, f_local.parameters()):
-                loss += torch.sum(param_3 * (param_2 - param_1))
-
-            loss.backward()
-            # if config.use_gradient_clip:
-            #     torch.nn.utils.clip_grad_norm_(f_local.parameters(), config.gradient_clip_constant)
-            optimizer.step()
-
-    # print(loss.item())
-    # Update the auxiliary variable
-
-    with torch.autograd.no_grad():
-        model_delta = compute_model_delta(f_local, f_initial)
-        new_c_i = []
-        for param_1, param_2, param_3 in zip(client_state.c_i, client_state.c, model_delta.parameters()):
-            new_c_i.append(
-                param_1 - param_2 - param_3 / config.local_lr / config.local_epoch / config.client_step_per_epoch)
-        new_c_i = tuple(new_c_i)
-        c_i_delta = []
-        for param_1, param_2 in zip(new_c_i, client_state.c_i):
-            c_i_delta.append(param_1 - param_2)
-
-    # no need to return f_local and c
-    return SCAFFOLD_client_state(global_round=client_state.global_round, model=None, model_delta=model_delta,
-                                 c_i=new_c_i, c_i_delta=c_i_delta, c=None)
-
-
-class SAGA(Optimizer):
-    def __init__(self, params, local_grad, global_grad, lr=1e-3):
-        defaults = dict(lr=lr)
-        self.local_grad = local_grad
-        self.global_grad = global_grad
-
-        super(SAGA, self).__init__(params, defaults)
-
-    @torch.no_grad()
-    def step(self):
-
-        for p_group in self.param_groups:
-            for p, lg, gg in zip(p_group['params'], self.local_grad, self.global_grad):
-                if p.grad is None:
-                    continue
-                d_p = p.grad
-
-                p.add_(d_p - lg + gg, alpha=-p_group['lr'])
-
-        return True
