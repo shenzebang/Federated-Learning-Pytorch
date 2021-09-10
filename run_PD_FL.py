@@ -9,7 +9,8 @@ from core.imbalance_fl import ImbalanceFL
 from torch.utils.tensorboard import SummaryWriter
 
 FEDERATED_LEARNERS = {
-    'fed-avg': FEDAVG
+    'fed-avg': FEDAVG,
+    'fed-pd': FEDPD
 }
 
 PD_FEDERATED_LEARNERS = {
