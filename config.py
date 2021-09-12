@@ -4,7 +4,8 @@ def make_parser():
     parser = argparse.ArgumentParser()
 
     # general configurations
-    parser.add_argument('--n_pd_rounds', type=int, default=5000, help='total communication rounds')
+    parser.add_argument('--n_pd_rounds', type=int, default=5000, help='total dual rounds for PDFL')
+    parser.add_argument('--n_global_rounds', type=int, default=5000, help='total communication rounds for FL')
     parser.add_argument('--test_batch_size', type=int, default=200)
     parser.add_argument('--use_ray', action='store_true')
     parser.add_argument('--device', type=str, default='cuda')
@@ -51,7 +52,7 @@ def make_parser():
     # Hyperparameters for the formulation "imbalance-fl"
     parser.add_argument('--lambda_lr', type=float, default=1)
     parser.add_argument('--tolerance_epsilon', type=float, default=1.)
-    parser.add_argument('--n_p_steps', type=int, default=5)
+    parser.add_argument('--n_p_steps', type=int, default=5, help="primal steps per dual step in PDFL")
 
     # Hyperparameters for fed-pd
     parser.add_argument('--eta', type=float, default=10)

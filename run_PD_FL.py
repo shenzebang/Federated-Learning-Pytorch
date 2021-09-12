@@ -40,7 +40,7 @@ def main():
     args.save_dir = 'output/%s/%s' %(experiment_setup, hyperparameter_setup)
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
-    with open(args.save_dir+'config.json', 'w') as f:
+    with open(args.save_dir+'/config.json', 'w') as f:
         json.dump(vars(args), f)
 
     # 2. prepare the data set
@@ -63,7 +63,7 @@ def main():
     statistics_monitor_fn = make_monitor_fn()
 
     # 3. prepare logger
-    tb_file = args.save_dir+f'{time.time()}'
+    tb_file = args.save_dir+f'/{time.time()}'
     print(f"writing to {tb_file}")
     writer = SummaryWriter(tb_file)
     logger_accuracy = Logger(writer, test_fn_accuracy, test_metric='accuracy')
