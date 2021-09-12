@@ -1,63 +1,20 @@
 import time
-import argparse
+
 import torch
 from utils import load_dataset, make_model, make_dataloader, split_dataset, make_evaluate_fn, save_model,\
     make_transforms, Logger, create_imbalance, make_monitor_fn
 from core.fed_avg import FEDAVG
 from core.fed_pd import FEDPD
 from core.scaffold import SCAFFOLD
-
+from config import make_parser
 from torch.utils.tensorboard import SummaryWriter
+import os, json
 FEDERATED_LEARNERS = {
     'fed-avg': FEDAVG,
     'fed-pd' : FEDPD,
     'scaffold': SCAFFOLD,
 }
 
-
-def make_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, choices=['cifar10'], default='cifar10')
-    parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--dense_hid_dims', type=str, default='384-192')
-    parser.add_argument('--conv_hid_dims', type=str, default='64-64')
-    parser.add_argument('--model', type=str, choices=['mlp', 'convnet', 'resnet'], default='convnet')
-    parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-pd', 'scaffold'], default='fed-avg')
-    parser.add_argument('--local_lr', type=float, default=0.1)
-    # parameters for fed-pd
-    parser.add_argument('--eta', type=float, default=10)
-    parser.add_argument('--fed_pd_dual_lr', type=float, default=1)
-
-    parser.add_argument('--l2_reg', type=float, default=-1.)
-    parser.add_argument('--global_lr', type=float, default=1.)
-    parser.add_argument('--homo_ratio', type=float, default=1.)
-    parser.add_argument('--n_workers', type=int, default=50)
-    parser.add_argument('--n_workers_per_round', type=int, default=5)
-    parser.add_argument('--local_epoch', type=int, default=5)
-    parser.add_argument('--client_step_per_epoch', type=int, default=5)
-    parser.add_argument('--test_batch_size', type=int, default=200)
-    parser.add_argument('--use_ray', action='store_true')
-    parser.add_argument('--n_global_rounds', type=int, default=5000)
-    parser.add_argument('--eval_freq', type=int, default=1)
-    ################################################################
-    # weight decay improves the testing accuracy
-    parser.add_argument('--weight_decay', type=float, default=1e-3)
-    ################################################################
-    # what to report in tensorboard
-    parser.add_argument('--test_metric', type=str, choices=['accuracy', 'class_wise_accuracy'], default='class_wise_accuracy')
-    ################################################################
-    # allow the clients to have different weights
-    parser.add_argument('--weighted', action='store_true')
-    ################################################################
-    # create imbalance among classes
-    parser.add_argument('--imbalance', action='store_true')
-    parser.add_argument('--reduce_to_ratio', type=float, default=1.)
-    # disable the data augmentation
-    parser.add_argument('--no_data_augmentation', action='store_true')
-    # gradient clip for scaffold may not be correct. removed temporarily
-    parser.add_argument('--use_gradient_clip', action='store_true')
-    parser.add_argument('--gradient_clip_constant', type=float, default=5.)
-    return parser
 
 
 def main():
@@ -67,6 +24,18 @@ def main():
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     loss = torch.nn.functional.cross_entropy
+
+    level = args.homo_ratio if args.heterogeneity == "mix" else args.dir_level
+    experiment_setup = f"FL_{args.heterogeneity}_{level}_{args.n_workers}_{args.n_workers_per_round}_{args.dataset}_{args.n_minority}_{args.reduce_to_ratio}_{args.model}_{args.weighted}"
+    hyperparameter_setup = f"{args.learner}_{args.global_lr}_{args.local_lr}_{args.client_step_per_epoch}_{args.local_epoch}"
+    if args.learner == "fed-pd":
+        hyperparameter_setup += f"_{args.eta}_{args.fed_pd_dual_lr}"
+
+    args.save_dir = 'output/%s/%s' % (experiment_setup, hyperparameter_setup)
+    if not os.path.exists(args.save_dir):
+        os.makedirs(args.save_dir)
+    with open(args.save_dir + 'config.json', 'w') as f:
+        json.dump(vars(args), f)
     # 2. prepare the data set
 
 
@@ -90,14 +59,7 @@ def main():
     statistics_monitor_fn = make_monitor_fn()
 
     # 3. prepare logger
-    ts = time.time()
-    if args.model == 'resnet':
-        tb_file = f'out/p_fl/{args.dataset}/resnet20/s{args.homo_ratio}' \
-                  f'/N{args.n_workers}/rhog{args.local_lr}_{args.learner}_{ts}'
-    else:
-        tb_file = f'out/p_fl/{args.dataset}/convnet/{args.conv_hid_dims}_{args.dense_hid_dims}/s{args.homo_ratio}' \
-              f'/N{args.n_workers}/rhog{args.local_lr}_{args.learner}_{ts}'
-
+    tb_file = args.save_dir + f'{time.time()}'
     print(f"writing to {tb_file}")
     writer = SummaryWriter(tb_file)
     logger_accuracy = Logger(writer, test_fn_accuracy, test_metric='accuracy')

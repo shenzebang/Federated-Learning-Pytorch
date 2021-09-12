@@ -120,8 +120,8 @@ def client_step(config, loss_fn, device, client_state: SCAFFOLD_client_state, cl
             loss += loss_linear
 
             loss.backward()
-            # if config.use_gradient_clip:
-            #     torch.nn.utils.clip_grad_norm_(f_local.parameters(), config.gradient_clip_constant)
+            if config.use_gradient_clip:
+                torch.nn.utils.clip_grad_norm_(f_local.parameters(), config.gradient_clip_constant)
             optimizer.step()
 
     # print(loss.item())
