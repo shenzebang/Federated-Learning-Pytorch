@@ -3,11 +3,13 @@ import time
 import torch
 from utils import load_dataset, make_model, make_dataloader, split_dataset, make_evaluate_fn, save_model,\
     make_transforms, Logger, create_imbalance, make_monitor_fn
+from loss_utils import focal_loss
 from core.fed_avg import FEDAVG
 from core.fed_pd import FEDPD
 from core.scaffold import SCAFFOLD
 from config import make_parser
 from torch.utils.tensorboard import SummaryWriter
+import torch.nn.functional as F
 import os, json
 FEDERATED_LEARNERS = {
     'fed-avg': FEDAVG,
@@ -15,7 +17,10 @@ FEDERATED_LEARNERS = {
     'scaffold': SCAFFOLD,
 }
 
-
+LOSS_FNS = {
+    'cross-entropy-loss': F.cross_entropy,
+    'focal-loss': focal_loss
+}
 
 def main():
     # 1. load the configurations
@@ -23,10 +28,10 @@ def main():
     print(args)
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
-    loss = torch.nn.functional.cross_entropy
+    loss_fn = LOSS_FNS[args.loss_fn]
 
     level = args.homo_ratio if args.heterogeneity == "mix" else args.dir_level
-    experiment_setup = f"FL_{args.heterogeneity}_{level}_{args.n_workers}_{args.n_workers_per_round}_{args.dataset}_{args.n_minority}_{args.reduce_to_ratio}_{args.model}_{args.weighted}"
+    experiment_setup = f"FL_{args.heterogeneity}_{level}_{args.n_workers}_{args.n_workers_per_round}_{args.dataset}_{args.n_minority}_{args.reduce_to_ratio}_{args.model}_{args.weighted}_{args.loss_fn}"
     hyperparameter_setup = f"{args.learner}_{args.global_lr}_{args.local_lr}_{args.client_step_per_epoch}_{args.local_epoch}"
     if args.learner == "fed-pd":
         hyperparameter_setup += f"_{args.eta}_{args.fed_pd_dual_lr}"
@@ -53,7 +58,7 @@ def main():
 
     model = make_model(args, n_classes, n_channels, device)
 
-    test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes, loss_fn=loss)
+    test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes, loss_fn=loss_fn)
     test_fn_class_wise_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='class_wise_accuracy',
                                                    n_classes=n_classes)
     statistics_monitor_fn = make_monitor_fn()
@@ -79,7 +84,7 @@ def main():
 
     make_fed_learner = FEDERATED_LEARNERS[args.learner]
 
-    fed_learner = make_fed_learner(model, local_dataloaders, loss, loggers, args, device)
+    fed_learner = make_fed_learner(model, local_dataloaders, loss_fn, loggers, args, device)
 
 
 

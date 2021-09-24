@@ -13,7 +13,8 @@ def make_parser():
                         default='class_wise_accuracy', help='what to report in tensorboard')
     parser.add_argument('--eval_freq', type=int, default=1, help='how often the test loss should be checked')
     parser.add_argument('--weighted', action='store_true', help='allow clients to have different weights initially')
-
+    parser.add_argument('--loss_fn', type=str, choices=['focal-loss', 'cross-entropy-loss'],
+                        default='cross-entropy-loss', help='loss functional')
 
     # tricks for NN training
     parser.add_argument('--no_data_augmentation', action='store_true', help='disable the data augmentation')
@@ -32,7 +33,7 @@ def make_parser():
     parser.add_argument('--conv_hid_dims', type=str, default='64-64')
     parser.add_argument('--model', type=str, choices=['mlp', 'convnet', 'resnet'], default='convnet')
     parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-pd', 'scaffold'], default='fed-pd')
-    parser.add_argument('--formulation', type=str, choices=['imbalance-fl', 'ratio_loss', 'focal_loss', 'GHMC_loss'],
+    parser.add_argument('--formulation', type=str, choices=['imbalance-fl', 'ratioloss-fl', 'focal_loss', 'GHMC_loss'],
                         default='imbalance-fl', help='formulation for handling class imbalance problem')
     parser.add_argument('--n_workers', type=int, default=50)
     parser.add_argument('--n_workers_per_round', type=int, default=5)

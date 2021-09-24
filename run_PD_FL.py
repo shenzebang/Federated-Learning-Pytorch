@@ -2,9 +2,11 @@ import time
 import torch
 from utils import load_dataset, make_model, make_dataloader, split_dataset, make_evaluate_fn, save_model, \
     make_transforms, Logger, create_imbalance, make_monitor_fn
+from data_utils import get_auxiliary_data
 from core.fed_avg import FEDAVG
 from core.fed_pd import FEDPD
 from core.imbalance_fl import ImbalanceFL
+from core.ratio_loss_fl import RatioLossFL
 from torch.utils.tensorboard import SummaryWriter
 from config import make_parser
 import os
@@ -16,7 +18,8 @@ FEDERATED_LEARNERS = {
 }
 
 PD_FEDERATED_LEARNERS = {
-    'imbalance-fl': ImbalanceFL
+    'imbalance-fl': ImbalanceFL,
+    'ratioloss-fl': RatioLossFL
 }
 
 
@@ -45,6 +48,8 @@ def main():
 
     # 2. prepare the data set
     dataset_train, dataset_test, n_classes, n_channels = load_dataset(args)
+
+
     if args.imbalance:
         dataset_train = create_imbalance(dataset_train, reduce_to_ratio=args.reduce_to_ratio)
 
@@ -82,7 +87,12 @@ def main():
                                    config=args,
                                    device=device
                                    )
-    pd_fed_learner = make_pd_fed_learner(fed_learner, args, loggers)
+
+    n_aux = 5
+    auxiliary_data = get_auxiliary_data(args, transforms_test, dataset_train, n_classes,
+                                        n_aux) if args.formulation == "ratioloss-fl" else None
+
+    pd_fed_learner = make_pd_fed_learner(fed_learner, args, loggers, auxiliary_data)
 
     pd_fed_learner.fit()
 

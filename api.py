@@ -85,7 +85,7 @@ class FedAlgorithm(object):
 
 class PrimalDualFedAlgorithm(object):
     # augment FedAlgorithm with additional dual updates
-    def __init__(self, primal_fed_algorithm: FedAlgorithm, config, loggers=None):
+    def __init__(self, primal_fed_algorithm: FedAlgorithm, config, loggers=None, auxiliary_data=None):
         self.config = config
         self.loggers = loggers
         # logger logs testing metrics of the current model
@@ -93,6 +93,8 @@ class PrimalDualFedAlgorithm(object):
         # self.primal_fed_algorithm is used to update the primal variable
         self.server_state = self.server_init()
         # server_state contains the primal and dual variables
+
+        self.auxiliary_data = auxiliary_data
 
     def fit(self):
         for round in trange(self.config.n_pd_rounds):

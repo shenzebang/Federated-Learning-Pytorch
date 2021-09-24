@@ -7,8 +7,8 @@ ImFL_server_state = namedtuple("ImFL_server_state", ['global_round', 'model', 'l
 
 
 class ImbalanceFL(PrimalDualFedAlgorithm):
-    def __init__(self, fed_algorithm: FedAlgorithm, config, logger):
-        super(ImbalanceFL, self).__init__(fed_algorithm, config, logger)
+    def __init__(self, fed_algorithm: FedAlgorithm, config, logger, auxiliary_data=None):
+        super(ImbalanceFL, self).__init__(fed_algorithm, config, logger, auxiliary_data)
 
     def server_init(self) -> ImFL_server_state:
         model = self.primal_fed_algorithm.server_state.model
