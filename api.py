@@ -1,7 +1,7 @@
 import torch
 from tqdm import trange
 import ray
-from utils import _evaluate_ray, _evaluate
+from utils.general_utils import _evaluate_ray, _evaluate
 
 
 class FedAlgorithm(object):
