@@ -1,13 +1,10 @@
 import torch
-import torch.optim as optim
-import torch.nn.functional as F
 import copy
 from api import FedAlgorithm
-from utils import weighted_sum_functions, compute_model_delta
+from utils.general_utils import weighted_sum_functions, compute_model_delta
 from collections import namedtuple
 from typing import List
 import ray
-from torch.optim.optimizer import Optimizer
 
 SCAFFOLD_server_state = namedtuple("SCAFFOLD_server_state", ['global_round', 'model', 'c'])
 SCAFFOLD_client_state = namedtuple("SCAFFOLD_client_state",

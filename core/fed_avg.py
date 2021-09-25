@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 import copy
 from api import FedAlgorithm
-from utils import weighted_sum_functions, compute_model_delta
+from utils.general_utils import weighted_sum_functions, compute_model_delta
 from collections import namedtuple
 from typing import List
 import ray

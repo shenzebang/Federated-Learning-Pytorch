@@ -1,8 +1,9 @@
 import time
 import torch
-from utils import load_dataset, make_model, make_dataloader, split_dataset, make_evaluate_fn, save_model, \
-    make_transforms, Logger, create_imbalance, make_monitor_fn
-from data_utils import get_auxiliary_data
+from utils.data_utils import load_dataset, make_dataloader, split_dataset, create_imbalance, get_auxiliary_data, make_transforms
+from utils.model_utils import make_model
+from utils.logger_utils import Logger
+from utils.test_utils import make_evaluate_fn, make_monitor_fn
 from core.fed_avg import FEDAVG
 from core.fed_pd import FEDPD
 from core.imbalance_fl import ImbalanceFL

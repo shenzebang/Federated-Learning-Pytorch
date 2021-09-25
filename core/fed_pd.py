@@ -1,15 +1,11 @@
 import torch
-import torch.optim as optim
 import torch.nn.functional as F
 import copy
 from api import FedAlgorithm
-from utils import weighted_sum_functions
+from utils.general_utils import weighted_sum_functions
 from collections import namedtuple
 from typing import List
 import ray
-from torch.optim.optimizer import Optimizer
-
-
 
 FEDPD_server_state = namedtuple("FEDPD_server_state", ['global_round', 'model'])
 FEDPD_client_state = namedtuple("FEDPD_client_state", ['global_round', 'model', 'lambda_var', 'model_delta'])
