@@ -29,7 +29,7 @@ class FEDAVG(FedAlgorithm):
     def client_init(self, server_state: FEDAVG_server_state, client_dataloader):
         return FEDAVG_client_state(global_round=server_state.global_round, model=server_state.model, model_delta=None)
 
-    def clients_step(self, clients_state, active_ids):
+    def clients_step(self, clients_state, weights, active_ids):
 
         active_clients = zip([clients_state[i] for i in active_ids], [self.client_dataloaders[i] for i in active_ids])
         if not self.config.use_ray:

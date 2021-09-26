@@ -29,7 +29,7 @@ class FedAlgorithm(object):
         # sample active clients
         active_ids = torch.randperm(self.config.n_workers)[:self.config.n_workers_per_round].tolist()
 
-        client_states = self.clients_step(client_states, active_ids)
+        client_states = self.clients_step(client_states, weights, active_ids)
 
         # aggregate
         server_state = self.server_step(server_state, client_states, weights, active_ids)
@@ -60,7 +60,7 @@ class FedAlgorithm(object):
     def client_init(self, server_state, client_dataloader):
         raise NotImplementedError
 
-    def clients_step(self, clients_state, active_ids):
+    def clients_step(self, clients_state, weights, active_ids):
         raise NotImplementedError
 
     def server_step(self, server_state, client_states, weights, active_ids):
