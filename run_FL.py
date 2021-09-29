@@ -51,7 +51,8 @@ def main():
 
     dataset_train, dataset_test, n_classes, n_channels = load_dataset(args)
     if args.imbalance:
-        dataset_train = create_imbalance(dataset_train, reduce_to_ratio=args.reduce_to_ratio)
+        assert(args.n_minority < n_classes)
+        dataset_train = create_imbalance(dataset_train, reduce_classes=tuple(range(args.n_minority)), reduce_to_ratio=args.reduce_to_ratio)
 
     transforms = make_transforms(args, train=True) # transforms for data augmentation and normalization
     local_datasets = split_dataset(args.n_workers, args.homo_ratio, dataset_train, transforms)
