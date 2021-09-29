@@ -42,8 +42,11 @@ class FedAlgorithm(object):
     def fit(self, weights, n_rounds=None):
         if n_rounds is None:
             n_rounds = self.config.n_global_rounds
+            _range = trange
+        else:
+            _range = range
 
-        for round in trange(n_rounds):
+        for round in _range(n_rounds):
             self.server_state, self.client_states = self.step(self.server_state, self.client_states, weights)
             if round % self.config.eval_freq == 0 and self.loggers is not None:
                 for logger in self.loggers:
