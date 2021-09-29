@@ -33,7 +33,7 @@ def make_parser():
     parser.add_argument('--conv_hid_dims', type=str, default='64-64')
     parser.add_argument('--model', type=str, choices=['mlp', 'convnet', 'resnet'], default='convnet')
     parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-pd', 'scaffold'], default='fed-pd')
-    parser.add_argument('--formulation', type=str, choices=['imbalance-fl', 'ratioloss-fl', 'focal_loss', 'GHMC_loss'],
+    parser.add_argument('--formulation', type=str, choices=['imbalance-fl', 'ratioloss-fl', 'GHMC_loss'],
                         default='imbalance-fl', help='formulation for handling class imbalance problem')
     parser.add_argument('--n_workers', type=int, default=50)
     parser.add_argument('--n_workers_per_round', type=int, default=5)

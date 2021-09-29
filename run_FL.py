@@ -13,6 +13,9 @@ from config import make_parser
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
 import os, json
+import warnings
+
+warnings.filterwarnings("ignore")
 FEDERATED_LEARNERS = {
     'fed-avg': FEDAVG,
     'fed-pd' : FEDPD,

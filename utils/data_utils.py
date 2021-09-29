@@ -74,6 +74,15 @@ def load_dataset(args):
         dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
         n_classes = 10
         n_channels = 3
+    elif args.dataset == "mnist":
+        dataset_train = datasets.MNIST(root='datasets/' + args.dataset, download=True)
+        # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
+        dataset_train.targets = torch.as_tensor(np.array(dataset_train.targets))
+        dataset_test = datasets.MNIST(root='datasets/' + args.dataset, train=False, download=True)
+        # dataset_test.data = torch.as_tensor(dataset_test.data).permute(0, 3, 1, 2)
+        dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
+        n_classes = 10
+        n_channels = 1
     else:
         raise NotImplementedError
 
@@ -149,8 +158,10 @@ def make_dataset(data, label, train, transform):
 
 
 
-normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+normalize_cifar10 = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
+normalize_mnist = transforms.Normalize(mean=(0.1307,), std=(0.3081,))
+
 
 # normalize = transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])
 
@@ -163,17 +174,37 @@ def make_transforms(args, train=True):
                     transforms.RandomHorizontalFlip(),
                     transforms.RandomCrop(32, padding=4),
                     transforms.ToTensor(),
-                    normalize,
+                    normalize_cifar10,
                 ])
             else:
                 transform = transforms.Compose([
                     transforms.ToTensor(),
-                    normalize,
+                    normalize_cifar10,
                 ])
         else:
             transform = transforms.Compose([
                 transforms.ToTensor(),
-                normalize,
+                normalize_cifar10,
+            ])
+    elif args.dataset == "mnist":
+        if train:
+            if not args.no_data_augmentation:
+                transform = transforms.Compose([
+                    transforms.ToPILImage(),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomCrop(32, padding=4),
+                    transforms.ToTensor(),
+                    normalize_mnist,
+                ])
+            else:
+                transform = transforms.Compose([
+                    transforms.ToTensor(),
+                    normalize_mnist,
+                ])
+        else:
+            transform = transforms.Compose([
+                transforms.ToTensor(),
+                normalize_mnist,
             ])
     else:
         raise NotImplementedError

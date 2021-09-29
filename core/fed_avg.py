@@ -21,7 +21,7 @@ class FEDAVG(FedAlgorithm):
                  ):
         super(FEDAVG, self).__init__(init_model, client_dataloaders, loss, loggers, config, device)
         if self.config.use_ray:
-            ray.init()
+            ray.init(log_to_driver=False)
 
     def server_init(self, init_model):
         return FEDAVG_server_state(global_round=0, model=init_model)
@@ -59,7 +59,7 @@ class FEDAVG(FedAlgorithm):
     def clients_update(self, server_state: FEDAVG_server_state, clients_state: List[FEDAVG_client_state], active_ids):
         return [FEDAVG_client_state(global_round=server_state.global_round, model=server_state.model, model_delta=None) for _ in clients_state]
 
-@ray.remote(num_gpus=.14)
+@ray.remote(num_gpus=.25)
 def ray_dispatch(config, loss_fn, device, client_state: FEDAVG_client_state, client_dataloader):
     return client_step(config, loss_fn, device, client_state, client_dataloader)
 
@@ -83,11 +83,15 @@ def client_step(config, loss_fn, device, client_state: FEDAVG_client_state, clie
                 l2_norm = torch.norm(torch.stack([torch.norm(param) for param in f_local.parameters()]))
                 loss += .5 * config.l2_reg * l2_norm ** 2
             loss.backward()
+            if config.use_gradient_clip:
+                torch.nn.utils.clip_grad_norm_(parameters=f_local.parameters(),
+                                               max_norm=config.gradient_clip_constant)  # Clip gradients
+
             optimizer.step()
 
     model_delta = compute_model_delta(f_local, client_state.model)
-    if config.use_gradient_clip:
-        model_delta = clip_model_delta(model_delta, config.gradient_clip_constant)
+    # if config.use_gradient_clip:
+    #     model_delta = clip_model_delta(model_delta, config.gradient_clip_constant)
     # no need to return f_local
     return FEDAVG_client_state(global_round=client_state.global_round, model=None, model_delta=model_delta)
 
