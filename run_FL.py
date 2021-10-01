@@ -52,7 +52,15 @@ def main():
     dataset_train, dataset_test, n_classes, n_channels = load_dataset(args)
     if args.imbalance:
         assert(args.n_minority < n_classes)
-        dataset_train = create_imbalance(dataset_train, reduce_classes=tuple(range(args.n_minority)), reduce_to_ratio=args.reduce_to_ratio)
+        if args.n_minority == 1:
+            reduce_classes = (0,)
+        elif args.n_minority == 3:
+            reduce_classes = (0, 2, 4)
+        elif args.n_minority == 5:
+            reduce_classes = (0, 2, 4, 6, 8)
+        else:
+            raise RuntimeError
+        dataset_train = create_imbalance(dataset_train, reduce_classes=reduce_classes, reduce_to_ratio=args.reduce_to_ratio)
 
     transforms = make_transforms(args, train=True) # transforms for data augmentation and normalization
     local_datasets = split_dataset(args.n_workers, args.homo_ratio, dataset_train, transforms)
