@@ -215,7 +215,7 @@ def make_transforms(args, train=True):
 def make_dataloader(args, dataset: LocalDataset):
     if dataset.train is True:
         batch_size = dataset.data.shape[0] // args.client_step_per_epoch
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=1)
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     else:
         dataloader = DataLoader(dataset, batch_size=args.test_batch_size, shuffle=False, num_workers=4)
 
