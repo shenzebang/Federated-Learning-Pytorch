@@ -35,7 +35,7 @@ class SCAFFOLD(FedAlgorithm):
                                      c_i=server_state.c,
                                      c_i_delta=None, c=server_state.c)
 
-    def clients_step(self, clients_state, active_ids):
+    def clients_step(self, clients_state, weights, active_ids):
         active_clients = zip([clients_state[i] for i in active_ids], [self.client_dataloaders[i] for i in active_ids])
         if not self.config.use_ray:
             new_clients_state = [

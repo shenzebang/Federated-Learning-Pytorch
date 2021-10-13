@@ -74,6 +74,15 @@ def load_dataset(args):
         dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
         n_classes = 10
         n_channels = 3
+    elif args.dataset == "cifar100":
+        dataset_train = datasets.CIFAR100(root='datasets/' + args.dataset, download=True)
+        # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
+        dataset_train.targets = torch.as_tensor(np.array(dataset_train.targets))
+        dataset_test = datasets.CIFAR100(root='datasets/' + args.dataset, train=False, download=True)
+        # dataset_test.data = torch.as_tensor(dataset_test.data).permute(0, 3, 1, 2)
+        dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
+        n_classes = 100
+        n_channels = 3
     elif args.dataset == "mnist":
         dataset_train = datasets.MNIST(root='datasets/' + args.dataset, download=True)
         # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
@@ -166,7 +175,7 @@ normalize_mnist = transforms.Normalize(mean=(0.1307,), std=(0.3081,))
 # normalize = transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])
 
 def make_transforms(args, train=True):
-    if args.dataset == "cifar10":
+    if args.dataset == "cifar10" or args.dataset == "cifar100":
         if train:
             if not args.no_data_augmentation:
                 transform = transforms.Compose([
