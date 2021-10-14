@@ -71,6 +71,8 @@ def main():
     test_dataloader = make_dataloader(args, dataset_test)
 
     model = make_model(args, n_classes, n_channels, device)
+    if args.load_model:
+        model.load_state_dict(torch.load("model.pth"))
 
     test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes, loss_fn=loss_fn)
     test_fn_class_wise_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='class_wise_accuracy',
