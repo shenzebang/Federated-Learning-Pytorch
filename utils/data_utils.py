@@ -79,7 +79,7 @@ def load_dataset(args):
 
     return dataset_train, dataset_test, n_classes, n_channels
 
-def split_dataset(n_workers, homo_ratio, dataset: VisionDataset, transform=None):
+def split_dataset(n_workers, args, dataset: VisionDataset, transform=None):
     data = dataset.data
     label = dataset.targets
 
@@ -87,39 +87,43 @@ def split_dataset(n_workers, homo_ratio, dataset: VisionDataset, transform=None)
     if n_workers == 1:
         return [make_dataset(data, label, dataset.train, transform)]
 
-    homo_ratio = homo_ratio
-    n_workers = n_workers
+    if args.dirac:
+        homo_ratio = args.homo_ratio
+        n_workers = n_workers
 
-    n_data = data.shape[0]
+        n_data = data.shape[0]
 
-    n_homo_data = int(n_data * homo_ratio)
+        n_homo_data = int(n_data * homo_ratio)
 
-    n_homo_data = n_homo_data - n_homo_data % n_workers
-    n_data = n_data - n_data % n_workers
+        n_homo_data = n_homo_data - n_homo_data % n_workers
+        n_data = n_data - n_data % n_workers
 
-    if n_homo_data > 0:
-        data_homo, label_homo = data[0:n_homo_data], label[0:n_homo_data]
-        data_homo_list, label_homo_list = np.split(data_homo, n_workers), label_homo.chunk(n_workers)
+        if n_homo_data > 0:
+            data_homo, label_homo = data[0:n_homo_data], label[0:n_homo_data]
+            data_homo_list, label_homo_list = np.split(data_homo, n_workers), label_homo.chunk(n_workers)
 
-    if n_homo_data < n_data:
-        data_hetero, label_hetero = data[n_homo_data:n_data], label[n_homo_data:n_data]
-        label_hetero_sorted, index = torch.sort(label_hetero)
-        data_hetero_sorted = data_hetero[index]
+        if n_homo_data < n_data:
+            data_hetero, label_hetero = data[n_homo_data:n_data], label[n_homo_data:n_data]
+            label_hetero_sorted, index = torch.sort(label_hetero)
+            data_hetero_sorted = data_hetero[index]
 
-        data_hetero_list, label_hetero_list = np.split(data_hetero_sorted, n_workers), label_hetero_sorted.chunk(
-            n_workers)
+            data_hetero_list, label_hetero_list = np.split(data_hetero_sorted, n_workers), label_hetero_sorted.chunk(
+                n_workers)
 
-    if 0 < n_homo_data < n_data:
-        data_list = [np.concatenate([data_homo, data_hetero], axis=0) for data_homo, data_hetero in
-                     zip(data_homo_list, data_hetero_list)]
-        label_list = [torch.cat([label_homo, label_hetero], dim=0) for label_homo, label_hetero in
-                      zip(label_homo_list, label_hetero_list)]
-    elif n_homo_data < n_data:
-        data_list = data_hetero_list
-        label_list = label_hetero_list
-    else:
-        data_list = data_homo_list
-        label_list = label_homo_list
+        if 0 < n_homo_data < n_data:
+            data_list = [np.concatenate([data_homo, data_hetero], axis=0) for data_homo, data_hetero in
+                         zip(data_homo_list, data_hetero_list)]
+            label_list = [torch.cat([label_homo, label_hetero], dim=0) for label_homo, label_hetero in
+                          zip(label_homo_list, label_hetero_list)]
+        elif n_homo_data < n_data:
+            data_list = data_hetero_list
+            label_list = label_hetero_list
+        else:
+            data_list = data_homo_list
+            label_list = label_homo_list
+
+    elif args.dirichlet:
+
 
     return [make_dataset(_data, _label, dataset.train, transform) for _data, _label in zip(data_list, label_list)]
 
