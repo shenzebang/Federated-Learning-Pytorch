@@ -47,7 +47,7 @@ def main():
 
 
     dataset_train, dataset_test, n_classes, n_channels = load_dataset(args)
-    if args.imbalance:
+    if args.reduce_to_ratio:
         dataset_train = create_imbalance(dataset_train, reduce_to_ratio=args.reduce_to_ratio)
 
     transforms = make_transforms(args, train=True) # transforms for data augmentation and normalization

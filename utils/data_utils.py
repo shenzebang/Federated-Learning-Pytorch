@@ -142,8 +142,6 @@ def split_dataset( args, dataset: VisionDataset, transform=None):
                 while cls_amount[cls_label] <= 0:
                     # If you run out of samples
                     correction=[[1-cls_priors[i,cls_label]]*n_cls for i in range(n_workers)]
-                    # Transpose it
-
                     cls_priors=cls_priors/correction
                     cls_priors[:,cls_label]=[0]*n_workers
                     curr_prior = np.cumsum(cls_priors, axis=1)
