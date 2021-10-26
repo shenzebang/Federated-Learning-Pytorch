@@ -79,9 +79,11 @@ def load_dataset(args):
 
     return dataset_train, dataset_test, n_classes, n_channels
 
-def split_dataset(n_workers, args, dataset: VisionDataset, transform=None):
+def split_dataset( args, dataset: VisionDataset, transform=None):
     data = dataset.data
     label = dataset.targets
+    n_workers=args.n_workers
+
 
     # centralized case, no need to split
     if n_workers == 1:
@@ -123,7 +125,47 @@ def split_dataset(n_workers, args, dataset: VisionDataset, transform=None):
             label_list = label_homo_list
 
     elif args.dirichlet:
+        n_cls=(int(torch.max(label)))+1
+        n_data = data.shape[0]
 
+        cls_priors = np.random.dirichlet(alpha=[args.homo_ratio] * n_cls, size=n_workers)
+        # cls_priors_init = cls_priors # Used for verification
+        prior_cumsum = np.cumsum(cls_priors, axis=1)
+        idx_list = [np.where(label == i)[0] for i in range(n_cls)]
+        cls_amount = [len(idx_list[i]) for i in range(n_cls)]
+        idx_worker=[[None] for i in range(n_workers)]
+
+        for curr_worker in range(n_workers):
+            for data_sample in range(n_data//n_workers):
+                curr_prior = prior_cumsum[curr_worker]
+                cls_label = np.argmax(np.random.uniform() <= curr_prior)
+                while cls_amount[cls_label] <= 0:
+                    # If you run out of samples
+                    correction=[[1-cls_priors[i,cls_label]]*n_cls for i in range(n_workers)]
+                    # Transpose it
+
+                    cls_priors=cls_priors/correction
+                    cls_priors[:,cls_label]=[0]*n_workers
+                    curr_prior = np.cumsum(cls_priors, axis=1)
+                    cls_label = np.argmax(np.random.uniform() <= curr_prior)
+
+                cls_amount[cls_label]-=1
+                if idx_worker[curr_worker]==[None]:
+                    idx_worker[curr_worker]=[idx_list[cls_label][0]]
+                else:
+                    idx_worker[curr_worker] = idx_worker[curr_worker] + [idx_list[cls_label][0]]
+
+                idx_list[cls_label]=idx_list[cls_label][1::]
+        data_list = [data[idx_worker[curr_worker]] for curr_worker in range(n_workers) ]
+        label_list = [label[idx_worker[curr_worker]] for curr_worker in range(n_workers) ]
+        # Verify distributions
+        # for curr_worker in range(n_workers):
+        #     print(len(idx_worker[curr_worker]))
+        #     idx_list = [np.where(label[idx_worker[curr_worker]] == i)[0] for i in range(n_cls)]
+        #     cls_amount = [len(idx_list[i]) for i in range(n_cls)]
+        #     print('Verify')
+        #     print('Real Value',cls_amount)
+        #     print('Expected Value:',cls_priors_init[curr_worker]*n_data//n_workers)
 
     return [make_dataset(_data, _label, dataset.train, transform) for _data, _label in zip(data_list, label_list)]
 

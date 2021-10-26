@@ -8,6 +8,9 @@ def make_parser():
     parser.add_argument('--n_global_rounds', type=int, default=5000, help='total communication rounds for FL')
     parser.add_argument('--test_batch_size', type=int, default=200)
     parser.add_argument('--use_ray', action='store_true')
+    parser.add_argument('--dirichlet', action='store_true')
+    parser.add_argument('--dirac', action='store_true')
+
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--test_metric', type=str, choices=['accuracy', 'class_wise_accuracy'],
                         default='class_wise_accuracy', help='what to report in tensorboard')
