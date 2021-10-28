@@ -101,6 +101,7 @@ def split_dataset(args, dataset: VisionDataset, transform=None):
     # Juan Modified This
     data = dataset.data
     label = dataset.targets
+    n_workers = args.n_workers
     homo_ratio = args.homo_ratio
 
     # centralized case, no need to split

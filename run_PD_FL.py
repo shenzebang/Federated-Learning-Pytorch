@@ -64,7 +64,7 @@ def main():
                                          reduce_to_ratio=args.reduce_to_ratio)
 
     transforms = make_transforms(args, train=True)  # transforms for data augmentation and normalization
-    local_datasets = split_dataset(args.n_workers, args.homo_ratio, dataset_train, transforms)
+    local_datasets = split_dataset(args, dataset_train, transforms)
     local_dataloaders = [make_dataloader(args, local_dataset) for local_dataset in local_datasets]
 
     transforms_test = make_transforms(args, train=False)
