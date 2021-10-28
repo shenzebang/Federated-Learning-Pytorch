@@ -44,9 +44,8 @@ def main():
     with open(args.save_dir + '/config.json', 'w') as f:
         json.dump(vars(args), f)
     # 2. prepare the data set
-
-
     dataset_train, dataset_test, n_classes, n_channels = load_dataset(args)
+
     if args.reduce_to_ratio:
         dataset_train = create_imbalance(dataset_train, reduce_to_ratio=args.reduce_to_ratio)
 
