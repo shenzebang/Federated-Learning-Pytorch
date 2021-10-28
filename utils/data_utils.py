@@ -146,7 +146,7 @@ def split_dataset(args, dataset: VisionDataset, transform=None):
         n_cls=(int(torch.max(label)))+1
         n_data = data.shape[0]
 
-        cls_priors = np.random.dirichlet(alpha=[args.homo_ratio] * n_cls, size=n_workers)
+        cls_priors = np.random.dirichlet(alpha=[args.dir_level] * n_cls, size=n_workers)
         # cls_priors_init = cls_priors # Used for verification
         prior_cumsum = np.cumsum(cls_priors, axis=1)
         idx_list = [np.where(label == i)[0] for i in range(n_cls)]
