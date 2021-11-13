@@ -48,7 +48,7 @@ def main():
         json.dump(vars(args), f)
 
     # 2. prepare the data set
-    dataset_train, dataset_test, n_classes, n_channels = load_dataset(args)
+    dataset_train, dataset_test, n_classes, n_channels, img_size = load_dataset(args)
 
     if args.imbalance:
         assert (args.n_minority < n_classes)
@@ -71,7 +71,7 @@ def main():
     dataset_test.transform = transforms_test
     test_dataloader = make_dataloader(args, dataset_test)
 
-    model = make_model(args, n_classes, n_channels, device)
+    model = make_model(args, n_classes, n_channels, device, img_size)
 
     test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes, loss_fn=loss)
     test_fn_class_wise_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='class_wise_accuracy', n_classes=n_classes)

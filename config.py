@@ -29,7 +29,7 @@ def make_parser():
                         help='Type of heterogeneity, mix or dir(dirichlet)')
     parser.add_argument('--homo_ratio', type=float, default=1.)
     parser.add_argument('--dir_level', type=float, default=.3, help='hyperparameter of the Dirichlet distribution')
-    parser.add_argument('--dataset', type=str, choices=['cifar10', 'cifar100', 'mnist', 'emnist', 'femnist', 'shakespeare'],
+    parser.add_argument('--dataset', type=str, choices=['cifar10', 'cifar100', 'mnist', 'fashion-mnist', 'emnist', 'shakespeare'],
                         default='cifar10', help='dataset (and the corresponding task), now only support cifar10')
     parser.add_argument('--dense_hid_dims', type=str, default='384-192')
     parser.add_argument('--conv_hid_dims', type=str, default='64-64')

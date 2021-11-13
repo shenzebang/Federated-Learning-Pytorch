@@ -3,15 +3,21 @@ import torch.nn.functional as F
 import torch
 
 class LeNet5(nn.Module):
-    def __init__(self, n_class=10, n_channels=3, conv_size=(6, 16),
+    def __init__(self, n_class=10, n_channels=3, img_size=32, conv_size=(6, 16),
                  hidden_size=(120, 84), device='cuda'):
         super(LeNet5, self).__init__()
         self.device = device
+        if img_size == 32:
+            width = 5
+        elif img_size == 28:
+            width = 4
+        else:
+            raise NotImplementedError
         self.activation = F.leaky_relu
         self.conv1 = nn.Conv2d(n_channels, conv_size[0], 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(conv_size[0], conv_size[1], 5)
-        self.fc1 = nn.Linear(conv_size[1] * 5 * 5, hidden_size[0])
+        self.fc1 = nn.Linear(conv_size[1] * width * width, hidden_size[0])
         self.fc2 = nn.Linear(hidden_size[0], hidden_size[1])
         self.fc3 = nn.Linear(hidden_size[1], n_class)
 

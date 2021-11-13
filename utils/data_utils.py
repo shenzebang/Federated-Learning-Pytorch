@@ -74,6 +74,7 @@ def load_dataset(args):
         dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
         n_classes = 10
         n_channels = 3
+        img_size = 32
     elif args.dataset == "cifar100":
         dataset_train = datasets.CIFAR100(root='datasets/' + args.dataset, download=True)
         # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
@@ -83,6 +84,7 @@ def load_dataset(args):
         dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
         n_classes = 100
         n_channels = 3
+        img_size = 32
     elif args.dataset == "mnist":
         dataset_train = datasets.MNIST(root='datasets/' + args.dataset, download=True)
         # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
@@ -92,10 +94,21 @@ def load_dataset(args):
         dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
         n_classes = 10
         n_channels = 1
+        img_size = 28
+    elif args.dataset == "fashion-mnist":
+        dataset_train = datasets.FashionMNIST(root='datasets/' + args.dataset, download=True)
+        # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
+        dataset_train.targets = torch.as_tensor(np.array(dataset_train.targets))
+        dataset_test = datasets.FashionMNIST(root='datasets/' + args.dataset, train=False, download=True)
+        # dataset_test.data = torch.as_tensor(dataset_test.data).permute(0, 3, 1, 2)
+        dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
+        n_classes = 10
+        n_channels = 1
+        img_size = 28
     else:
         raise NotImplementedError
 
-    return dataset_train, dataset_test, n_classes, n_channels
+    return dataset_train, dataset_test, n_classes, n_channels, img_size
 
 def split_dataset(args, dataset: VisionDataset, transform=None):
     data = dataset.data
@@ -251,6 +264,10 @@ def make_transforms(args, train=True):
                 transforms.ToTensor(),
                 normalize_mnist,
             ])
+    elif args.dataset == "fashion-mnist":
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
     else:
         raise NotImplementedError
 
