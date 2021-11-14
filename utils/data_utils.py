@@ -105,6 +105,16 @@ def load_dataset(args):
         n_classes = 10
         n_channels = 1
         img_size = 28
+    elif args.dataset == "emnist":
+        dataset_train = datasets.EMNIST(root='datasets/' + args.dataset, split="letters", download=True)
+        # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
+        dataset_train.targets = torch.as_tensor(np.array(dataset_train.targets)) - 1
+        dataset_test = datasets.EMNIST(root='datasets/' + args.dataset, split="letters", train=False, download=True)
+        # dataset_test.data = torch.as_tensor(dataset_test.data).permute(0, 3, 1, 2)
+        dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets)) - 1
+        n_classes = 26
+        n_channels = 1
+        img_size = 28
     else:
         raise NotImplementedError
 
@@ -265,6 +275,10 @@ def make_transforms(args, train=True):
                 normalize_mnist,
             ])
     elif args.dataset == "fashion-mnist":
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+        ])
+    elif args.dataset == "emnist":
         transform = transforms.Compose([
             transforms.ToTensor(),
         ])
