@@ -13,7 +13,7 @@ def alpha_loss(f_data,label,alpha=0.8):
     if alpha == 1.0:
         loss = torch.mean(torch.sum(-target*torch.log(torch.softmax(f_data,dim=1) + 1e-8),dim=1))
     else:
-        alpha_cuda = torch.FloatTensor([my_alpha]).cuda()
+        alpha_cuda = torch.FloatTensor([alpha]).cuda()
         one_cuda = torch.FloatTensor([1.0]).cuda()
         loss = (alpha_cuda/(alpha_cuda-one_cuda))*torch.mean(torch.sum(label*(one_cuda - torch.softmax(f_data,dim=1).pow(one_cuda - (one_cuda/alpha_cuda))),dim=1))
     return loss
