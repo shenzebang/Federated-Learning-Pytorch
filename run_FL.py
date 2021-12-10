@@ -6,6 +6,7 @@ from utils.logger_utils import Logger
 from utils.test_utils import make_evaluate_fn, make_monitor_fn
 from utils.model_utils import make_model
 from utils.loss_utils import focal_loss
+from utils.loss_utils import alpha_loss
 from core.fed_avg import FEDAVG
 from core.fed_pd import FEDPD
 from core.scaffold import SCAFFOLD
@@ -24,7 +25,8 @@ FEDERATED_LEARNERS = {
 
 LOSS_FNS = {
     'cross-entropy-loss': F.cross_entropy,
-    'focal-loss': focal_loss
+    'focal-loss': focal_loss,
+    'alpha-loss': alpha_loss
 }
 
 def main():

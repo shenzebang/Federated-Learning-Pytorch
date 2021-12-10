@@ -14,7 +14,7 @@ def make_parser():
                         default='class_wise_accuracy', help='what to report in tensorboard')
     parser.add_argument('--eval_freq', type=int, default=1, help='how often the test loss should be checked')
     parser.add_argument('--weighted', action='store_true', help='allow clients to have different weights initially')
-    parser.add_argument('--loss_fn', type=str, choices=['focal-loss', 'cross-entropy-loss'],
+    parser.add_argument('--loss_fn', type=str, choices=['focal-loss', 'cross-entropy-loss','alpha-loss'],
                         default='cross-entropy-loss', help='loss functional')
 
 
@@ -40,7 +40,7 @@ def make_parser():
     parser.add_argument('--n_workers', type=int, default=50)
     parser.add_argument('--n_workers_per_round', type=int, default=5)
     parser.add_argument('--l2_reg', type=float, default=-1.)
-
+    parser.add_argument('--alpha_loss_value', type=float, default=0.8)
 
     parser.add_argument('--imbalance', action='store_true', help='create imbalance among classes')
     parser.add_argument('--n_minority', type=int, default=1, help='number of minority classes')
