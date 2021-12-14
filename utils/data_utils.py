@@ -122,6 +122,7 @@ def load_dataset(args):
 
 def split_dataset(args, dataset: VisionDataset, transform=None):
     data = dataset.data
+    data = data.numpy() if torch.is_tensor(data) is True else data
     label = dataset.targets
     n_workers = args.n_workers
     homo_ratio = args.homo_ratio
