@@ -5,7 +5,7 @@ from config import make_parser
 from utils.data_utils import load_dataset, make_transforms, make_dataloader, split_dataset
 from utils.model_utils import make_model as _make_model
 from core.ffgb_distill import FFGB_D
-# from core.fed_avg_distill import FEDAVG_D
+from core.fedavg_distill import FEDAVG_D
 from utils.logger_utils import make_evaluate_fn, make_monitor_fn, Logger
 import json
 import time
@@ -15,7 +15,7 @@ import os
 
 FEDERATED_LEARNERS = {
     'ffgb-d': FFGB_D,
-    # 'fedavg_d': FEDAVG_D
+    'fedavg-d': FEDAVG_D
 }
 
 
@@ -39,6 +39,8 @@ if __name__ == '__main__':
     hyperparameter_setup = f"{args.learner}_{args.local_dataloader_batch_size}_{args.distill_dataloader_batch_size}"
     if args.learner == "ffgb-d":
         hyperparameter_setup += f"_{args.local_steps}_{args.functional_lr}_{args.f_l2_reg}_{args.weak_learner_epoch}_{args.weak_learner_lr}_{args.weak_learner_weight_decay}"
+    elif args.learner == 'fedavg-d':
+        hyperparameter_setup += f"_{args.fedavg_d_local_lr}_{args.fedavg_d_local_epoch}_{args.fedavg_d_weight_decay}"
     else:
         raise NotImplementedError
 

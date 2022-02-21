@@ -18,7 +18,7 @@ class FFGB_D(FedAlgorithm):
                  init_model,
                  make_model,
                  client_dataloaders,
-                 distill_dataloder,
+                 distill_dataloader,
                  Dx_loss,
                  loggers,
                  config,
@@ -29,7 +29,7 @@ class FFGB_D(FedAlgorithm):
                                      loggers,
                                      config,
                                      device)
-        self.distill_dataloder = distill_dataloder
+        self.distill_dataloader = distill_dataloader
         self.make_model = make_model
         self.Dx_loss = Dx_loss
         if self.config.use_ray:
@@ -55,8 +55,6 @@ class FFGB_D(FedAlgorithm):
         return clients_state
 
     def server_step(self, server_state, client_states, weights, active_ids):
-        print("#"*30)
-        print("start server step")
         active_clients = [client_states[i] for i in active_ids]
         new_model = copy.deepcopy(server_state.model)
         f = FunctionEnsemble()
@@ -71,14 +69,7 @@ class FFGB_D(FedAlgorithm):
             lr=self.config.distill_oracle_lr
         )
 
-        if self.config.distill_oracle == "kl":
-            oracle = kl_oracle
-            target = f
-        elif self.config.distill_oracle == "l2":
-            oracle = l2_oracle
-            target = lambda data, label: f(data)
-        else:
-            return NotImplementedError
+
 
 
         if 'emnist-digit' == self.config.dataset_distill or 'emnist-letter' == self.config.dataset_distill:
@@ -86,11 +77,20 @@ class FFGB_D(FedAlgorithm):
             # the new dataloader returns (data, target(data)) pairs
             # this avoids the repetitive evaluation of target(data)
             print('create a new dataloader for efficient knowledge distillation')
-            distill_dataloader = new_dataloader_from_target(target, self.distill_dataloder, self.device)
+            target = f
+            distill_dataloader = new_dataloader_from_target(target, self.distill_dataloader, self.device)
             # generate new_model
             new_model = oracle_from_dataloader(distill_config, new_model, distill_dataloader, self.device)
         else:
-            new_model = oracle(distill_config, target, new_model, self.distill_dataloder, self.device)
+            if self.config.distill_oracle == "kl":
+                oracle = kl_oracle
+                target = f
+            elif self.config.distill_oracle == "l2":
+                oracle = l2_oracle
+                target = lambda data, label: f(data)
+            else:
+                return NotImplementedError
+            new_model = oracle(distill_config, target, new_model, self.distill_dataloader, self.device)
 
         new_server_state = FFGB_D_server_state(
             global_round=server_state.global_round + 1,
@@ -102,16 +102,16 @@ class FFGB_D(FedAlgorithm):
         return [FFGB_D_client_state(global_round=server_state.global_round, model=server_state.model, model_delta=None) for client_state in clients_state]
 
 
-def new_dataloader_from_target(target, distill_dataloder, device):
+def new_dataloader_from_target(target, distill_dataloader, device):
     labels = []
-    # distill_dataloder.shuffle = False
-    for data, _ in distill_dataloder:
-        labels.append(target(data.to(device), None))
+    # distill_dataloader.shuffle = False
+    for data, _ in distill_dataloader:
+        labels.append(target(data.to(device)))
 
     labels = torch.cat(labels).to('cpu')
-    new_dataset = LocalDataset(distill_dataloder.dataset.data.numpy(),
-                               labels, train=True, transform=distill_dataloder.dataset.transform)
-    return DataLoader(new_dataset, distill_dataloder.batch_size, shuffle=True, num_workers=distill_dataloder.num_workers)
+    new_dataset = LocalDataset(distill_dataloader.dataset.data.numpy(),
+                               labels, train=True, transform=distill_dataloader.dataset.transform)
+    return DataLoader(new_dataset, distill_dataloader.batch_size, shuffle=True, num_workers=distill_dataloader.num_workers)
 
 
 
