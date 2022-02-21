@@ -4,7 +4,7 @@ import torchvision.datasets as datasets
 from torchvision.datasets import VisionDataset
 from torchvision import transforms
 from torch.utils.data import DataLoader
-
+from PIL import Image
 
 def get_auxiliary_data(config, transforms, dataset, n_classes, n_aux):
     # output an auxiliary dataset with n_aux sample per class
@@ -64,55 +64,65 @@ def create_imbalance(dataset, reduce_classes=(0,), reduce_to_ratio=.2):
     return dataset
 
 
-def load_dataset(args):
-    if args.dataset == "cifar10":
-        dataset_train = datasets.CIFAR10(root='datasets/' + args.dataset, download=True)
+def load_dataset(dataset):
+    if dataset == "cifar10":
+        dataset_train = datasets.CIFAR10(root='datasets/' + dataset, download=True)
         # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
         dataset_train.targets = torch.as_tensor(np.array(dataset_train.targets))
-        dataset_test = datasets.CIFAR10(root='datasets/' + args.dataset, train=False, download=True)
+        dataset_test = datasets.CIFAR10(root='datasets/' + dataset, train=False, download=True)
         # dataset_test.data = torch.as_tensor(dataset_test.data).permute(0, 3, 1, 2)
         dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
         n_classes = 10
         n_channels = 3
         img_size = 32
-    elif args.dataset == "cifar100":
-        dataset_train = datasets.CIFAR100(root='datasets/' + args.dataset, download=True)
+    elif dataset == "cifar100":
+        dataset_train = datasets.CIFAR100(root='datasets/' + dataset, download=True)
         # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
         dataset_train.targets = torch.as_tensor(np.array(dataset_train.targets))
-        dataset_test = datasets.CIFAR100(root='datasets/' + args.dataset, train=False, download=True)
+        dataset_test = datasets.CIFAR100(root='datasets/' + dataset, train=False, download=True)
         # dataset_test.data = torch.as_tensor(dataset_test.data).permute(0, 3, 1, 2)
         dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
         n_classes = 100
         n_channels = 3
         img_size = 32
-    elif args.dataset == "mnist":
-        dataset_train = datasets.MNIST(root='datasets/' + args.dataset, download=True)
+    elif dataset == "mnist":
+        dataset_train = datasets.MNIST(root='datasets/' + dataset, download=True)
         # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
         dataset_train.targets = torch.as_tensor(np.array(dataset_train.targets))
-        dataset_test = datasets.MNIST(root='datasets/' + args.dataset, train=False, download=True)
+        dataset_test = datasets.MNIST(root='datasets/' + dataset, train=False, download=True)
         # dataset_test.data = torch.as_tensor(dataset_test.data).permute(0, 3, 1, 2)
         dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
         n_classes = 10
         n_channels = 1
         img_size = 28
-    elif args.dataset == "fashion-mnist":
-        dataset_train = datasets.FashionMNIST(root='datasets/' + args.dataset, download=True)
+    elif dataset == "fashion-mnist":
+        dataset_train = datasets.FashionMNIST(root='datasets/' + dataset, download=True)
         # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
         dataset_train.targets = torch.as_tensor(np.array(dataset_train.targets))
-        dataset_test = datasets.FashionMNIST(root='datasets/' + args.dataset, train=False, download=True)
+        dataset_test = datasets.FashionMNIST(root='datasets/' + dataset, train=False, download=True)
         # dataset_test.data = torch.as_tensor(dataset_test.data).permute(0, 3, 1, 2)
         dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
         n_classes = 10
         n_channels = 1
         img_size = 28
-    elif args.dataset == "emnist":
-        dataset_train = datasets.EMNIST(root='datasets/' + args.dataset, split="letters", download=True)
+    elif dataset == "emnist-letter":
+        dataset_train = datasets.EMNIST(root='datasets/' + "emnist", split="letters", download=True)
         # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
         dataset_train.targets = torch.as_tensor(np.array(dataset_train.targets)) - 1
-        dataset_test = datasets.EMNIST(root='datasets/' + args.dataset, split="letters", train=False, download=True)
+        dataset_test = datasets.EMNIST(root='datasets/' + "emnist", split="letters", train=False, download=True)
         # dataset_test.data = torch.as_tensor(dataset_test.data).permute(0, 3, 1, 2)
         dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets)) - 1
         n_classes = 26
+        n_channels = 1
+        img_size = 28
+    elif dataset == "emnist-digit":
+        dataset_train = datasets.EMNIST(root='datasets/' + "emnist", split="digits", download=True)
+        # dataset_train.data = torch.as_tensor(dataset_train.data).permute(0, 3, 1, 2)
+        dataset_train.targets = torch.as_tensor(np.array(dataset_train.targets))
+        dataset_test = datasets.EMNIST(root='datasets/' + "emnist", split="digits", train=False, download=True)
+        # dataset_test.data = torch.as_tensor(dataset_test.data).permute(0, 3, 1, 2)
+        dataset_test.targets = torch.as_tensor(np.array(dataset_test.targets))
+        n_classes = 10
         n_channels = 1
         img_size = 28
     else:
@@ -216,6 +226,8 @@ class LocalDataset(VisionDataset):
 
     def __getitem__(self, item):
         sample = self.data[item]
+        sample = Image.fromarray(sample)
+
         if self.transform:
             sample = self.transform(sample)
         return sample, self.label[item]
@@ -234,12 +246,12 @@ normalize_mnist = transforms.Normalize(mean=(0.1307,), std=(0.3081,))
 
 # normalize = transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])
 
-def make_transforms(args, train=True):
-    if args.dataset == "cifar10" or args.dataset == "cifar100":
+def make_transforms(args, dataset, train=True):
+    if dataset == "cifar10" or dataset == "cifar100":
         if train:
             if not args.no_data_augmentation:
                 transform = transforms.Compose([
-                    transforms.ToPILImage(),
+                    # transforms.ToPILImage(),
                     transforms.RandomHorizontalFlip(),
                     transforms.RandomCrop(32, padding=4),
                     transforms.ToTensor(),
@@ -255,11 +267,11 @@ def make_transforms(args, train=True):
                 transforms.ToTensor(),
                 normalize_cifar10,
             ])
-    elif args.dataset == "mnist":
+    elif dataset == "mnist":
         if train:
             if not args.no_data_augmentation:
                 transform = transforms.Compose([
-                    transforms.ToPILImage(),
+                    # transforms.ToPILImage(),
                     transforms.RandomHorizontalFlip(),
                     transforms.RandomCrop(32, padding=4),
                     transforms.ToTensor(),
@@ -275,11 +287,11 @@ def make_transforms(args, train=True):
                 transforms.ToTensor(),
                 normalize_mnist,
             ])
-    elif args.dataset == "fashion-mnist":
+    elif dataset == "fashion-mnist":
         transform = transforms.Compose([
             transforms.ToTensor(),
         ])
-    elif args.dataset == "emnist":
+    elif dataset == "emnist-letter" or "emnist-digit":
         transform = transforms.Compose([
             transforms.ToTensor(),
         ])
@@ -289,11 +301,28 @@ def make_transforms(args, train=True):
     return transform
 
 
-def make_dataloader(args, dataset: LocalDataset):
-    if dataset.train is True:
-        batch_size = dataset.data.shape[0] // args.client_step_per_epoch
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-    else:
+# def make_dataloader(args, dataset: LocalDataset):
+#     if dataset.train is True:
+#         batch_size = dataset.data.shape[0] // args.client_step_per_epoch
+#         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+#     else:
+#         dataloader = DataLoader(dataset, batch_size=args.test_batch_size, shuffle=False, num_workers=4)
+#
+#     return dataloader
+
+
+def make_dataloader(args, type, dataset: LocalDataset, shuffle=True):
+    if type == "train":
+        if '-d' in args.learner:
+            dataloader = DataLoader(dataset, batch_size=args.local_dataloader_batch_size, shuffle=True, num_workers=0)
+        else:
+            batch_size = dataset.data.shape[0] // args.client_step_per_epoch
+            dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+    elif type == "test":
         dataloader = DataLoader(dataset, batch_size=args.test_batch_size, shuffle=False, num_workers=4)
+    elif type == "distill":
+        dataloader = DataLoader(dataset, batch_size=args.distill_dataloader_batch_size, shuffle=shuffle, num_workers=4)
+    else:
+        raise NotImplementedError
 
     return dataloader

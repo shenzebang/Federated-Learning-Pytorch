@@ -29,12 +29,12 @@ def make_parser():
                         help='Type of heterogeneity, mix or dir(dirichlet)')
     parser.add_argument('--homo_ratio', type=float, default=1.)
     parser.add_argument('--dir_level', type=float, default=.3, help='hyperparameter of the Dirichlet distribution')
-    parser.add_argument('--dataset', type=str, choices=['cifar10', 'cifar100', 'mnist', 'fashion-mnist', 'emnist', 'shakespeare'],
+    parser.add_argument('--dataset', type=str, choices=['cifar10', 'cifar100', 'mnist', 'fashion-mnist', 'emnist-letter', 'emnist-digit', 'shakespeare'],
                         default='cifar10', help='dataset (and the corresponding task), now only support cifar10')
     parser.add_argument('--dense_hid_dims', type=str, default='384-192')
     parser.add_argument('--conv_hid_dims', type=str, default='64-64')
     parser.add_argument('--model', type=str, choices=['mlp', 'convnet', 'resnet'], default='convnet')
-    parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-pd', 'scaffold'], default='fed-pd')
+    parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-pd', 'scaffold', 'ffgb-d'], default='fed-pd')
     parser.add_argument('--formulation', type=str, choices=['imbalance-fl', 'ratioloss-fl', 'GHMC_loss'],
                         default='imbalance-fl', help='formulation for handling class imbalance problem')
     parser.add_argument('--n_workers', type=int, default=50)
@@ -60,5 +60,34 @@ def make_parser():
     # Hyperparameters for fed-pd
     parser.add_argument('--eta', type=float, default=10)
     parser.add_argument('--fed_pd_dual_lr', type=float, default=1)
+
+    # General hyperparameters for Functional Federated Learning
+    parser.add_argument('--local_dataloader_batch_size', type=int, default=50)
+    parser.add_argument('--distill_dataloader_batch_size', type=int, default=50)
+    parser.add_argument('--dataset_distill', type=str,
+                        choices=['cifar10', 'cifar100', 'mnist', 'fashion-mnist', 'emnist-letter', 'emnist-digit',
+                                 'shakespeare'],
+                        default='cifar10')
+    # Hyperparameters for FFGB-D
+    parser.add_argument('--functional_lr', type=float, default=10.)
+    parser.add_argument('--f_l2_reg', type=float, default=5e-3)
+    parser.add_argument('--local_steps', type=int, default=1)
+    parser.add_argument('--weak_learner_epoch', type=int, default=120)
+    parser.add_argument('--weak_learner_lr', type=float, default=1e-3)
+    parser.add_argument('--weak_learner_weight_decay', type=float, default=0)
+
+    # Hyperparameters for FEDAVG-D
+    parser.add_argument('--fedavg_d_local_lr', type=float, default=.01)
+    parser.add_argument('--fedavg_d_local_epoch', type=int, default=50)
+    parser.add_argument('--fedavg_d_weight_decay', type=float, default=1e-3)
+
+    # distill oracle
+    parser.add_argument('--distill_oracle', type=str, choices=["kl", "l2"], default="l2")
+    parser.add_argument('--distill_oracle_epoch', type=int, default=10)
+    parser.add_argument('--distill_oracle_lr', type=float, default=1e-3)
+    parser.add_argument('--distill_oracle_weight_decay', type=float, default=.001)
+
+
+
 
     return parser
