@@ -22,7 +22,7 @@ class ImbalanceFL(PrimalDualFedAlgorithm):
         self.primal_fed_algorithm.fit(weights, self.config.n_p_steps)
         model_new = self.primal_fed_algorithm.server_state.model
         lambda_new = sss.lambda_var + self.config.lambda_lr * (client_losses - torch.mean(client_losses) - self.config.tolerance_epsilon) / self.config.n_workers
-        lambda_new = torch.clamp(lambda_new, min=0., max=5.)
+        lambda_new = torch.clamp(lambda_new, min=0., max=100.)
         self.server_state = ImFL_server_state(global_round=sss.global_round+1, model=model_new, lambda_var=lambda_new)
 
         # print('client_losses', client_losses)
