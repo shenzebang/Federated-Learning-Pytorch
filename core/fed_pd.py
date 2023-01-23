@@ -84,7 +84,7 @@ def client_step(config, weight, loss_fn, device, client_state: FEDPD_client_stat
         for data, label in client_dataloader:
             optimizer.zero_grad()
             data = data.to(device)
-            label = label.to(device)
+            label = label.to(device, non_blocking=True)
             loss = loss_fn(f_local(data), label) * weight
 
             if client_state.lambda_var is not None:

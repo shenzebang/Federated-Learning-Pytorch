@@ -273,7 +273,7 @@ def make_transforms(args, dataset, train=True):
                 transform = transforms.Compose([
                     # transforms.ToPILImage(),
                     transforms.RandomHorizontalFlip(),
-                    transforms.RandomCrop(32, padding=4),
+                    transforms.RandomCrop(28, padding=4),
                     transforms.ToTensor(),
                     normalize_mnist,
                 ])
@@ -317,7 +317,7 @@ def make_dataloader(args, type, dataset: LocalDataset, shuffle=True):
             dataloader = DataLoader(dataset, batch_size=args.local_dataloader_batch_size, shuffle=True, num_workers=0)
         else:
             batch_size = dataset.data.shape[0] // args.client_step_per_epoch
-            dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+            dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True)
     elif type == "test":
         dataloader = DataLoader(dataset, batch_size=args.test_batch_size, shuffle=False, num_workers=4)
     elif type == "distill":

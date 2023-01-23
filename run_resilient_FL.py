@@ -70,7 +70,7 @@ def main():
     transforms_test = make_transforms(args, args.dataset, train=False)
     dataset_test.transform = transforms_test
     test_dataloader = make_dataloader(args, "test", dataset_test)
-    print(f"n_classes {n_classes}, n_channels{n_channels}, device{device}, img_size{img_size}")
+
     model = make_model(args, n_classes, n_channels, device, img_size)
 
     test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes, loss_fn=loss)
