@@ -35,7 +35,7 @@ def make_parser():
     parser.add_argument('--conv_hid_dims', type=str, default='64-64')
     parser.add_argument('--model', type=str, choices=['mlp', 'convnet', 'resnet'], default='convnet')
     parser.add_argument('--learner', type=str, choices=['fed-avg', 'fed-pd', 'scaffold'], default='fed-pd')
-    parser.add_argument('--formulation', type=str, choices=['imbalance-fl', 'ratioloss-fl', 'GHMC_loss'],
+    parser.add_argument('--formulation', type=str, choices=['imbalance-fl','imbalance-fl-res', 'ratioloss-fl', 'GHMC_loss'],
                         default='imbalance-fl', help='formulation for handling class imbalance problem')
     parser.add_argument('--n_workers', type=int, default=50)
     parser.add_argument('--n_workers_per_round', type=int, default=5)
@@ -56,7 +56,9 @@ def make_parser():
     parser.add_argument('--lambda_lr', type=float, default=1)
     parser.add_argument('--tolerance_epsilon', type=float, default=1.)
     parser.add_argument('--n_p_steps', type=int, default=5, help="primal steps per dual step in PDFL")
-
+    # Resilient added this
+    parser.add_argument('--perturbation_lr', type=float, default=0.5)
+    parser.add_argument('--perturbation_penalty', type=float, default=4)
     # Hyperparameters for fed-pd
     parser.add_argument('--eta', type=float, default=10)
     parser.add_argument('--fed_pd_dual_lr', type=float, default=1)

@@ -6,7 +6,7 @@ from utils.logger_utils import wandbLogger
 from utils.test_utils import make_evaluate_fn, make_monitor_fn
 from core.fed_avg import FEDAVG
 from core.fed_pd import FEDPD
-from core.imbalance_fl import ImbalanceFL
+from core.imbalance_fl import ImbalanceFL, ImbalanceFLRes
 from core.ratio_loss_fl import RatioLossFL
 from torch.utils.tensorboard import SummaryWriter
 from config import make_parser
@@ -21,6 +21,7 @@ FEDERATED_LEARNERS = {
 
 PD_FEDERATED_LEARNERS = {
     'imbalance-fl': ImbalanceFL,
+    'imbalance-fl-res':ImbalanceFLRes,
     'ratioloss-fl': RatioLossFL
 }
 
