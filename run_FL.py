@@ -48,7 +48,8 @@ def main():
         json.dump(vars(args), f)
     # 2. prepare the data set
 
-    dataset_train, dataset_test, n_classes, n_channels, img_size = load_dataset(args.dataset)
+
+    dataset_train, dataset_test, n_classes, n_channels, img_size = load_dataset(args)
     if args.imbalance:
         assert(args.n_minority < n_classes)
         if args.n_minority == 1:
@@ -61,13 +62,13 @@ def main():
             raise RuntimeError
         dataset_train = create_imbalance(dataset_train, reduce_classes=reduce_classes, reduce_to_ratio=args.reduce_to_ratio)
 
-    transforms = make_transforms(args, args.dataset, train=True) # transforms for data augmentation and normalization
+    transforms = make_transforms(args, train=True) # transforms for data augmentation and normalization
     local_datasets = split_dataset(args, dataset_train, transforms)
-    local_dataloaders = [make_dataloader(args, "train", local_dataset) for local_dataset in local_datasets]
+    local_dataloaders = [make_dataloader(args, local_dataset) for local_dataset in local_datasets]
 
-    transforms_test = make_transforms(args, args.dataset, train=False)
+    transforms_test = make_transforms(args, train=False)
     dataset_test.transform = transforms_test
-    test_dataloader = make_dataloader(args, "test", dataset_test)
+    test_dataloader = make_dataloader(args, dataset_test)
 
     model = make_model(args, n_classes, n_channels, device, img_size)
     if args.load_model:

@@ -84,7 +84,7 @@ def client_step(config, weight, loss_fn, device, client_state: FEDPD_client_stat
         for data, label in client_dataloader:
             optimizer.zero_grad()
             data = data.to(device)
-            label = label.to(device, non_blocking=True)
+            label = label.to(device)
             loss = loss_fn(f_local(data), label) * weight
 
             if client_state.lambda_var is not None:
@@ -126,6 +126,6 @@ def client_step(config, weight, loss_fn, device, client_state: FEDPD_client_stat
     # model is not used. Only model_delta is used.
     return FEDPD_client_state(global_round=client_state.global_round, model=None, lambda_var=lambda_var, model_delta=f_local)
 
-@ray.remote(num_gpus=.25)
+@ray.remote(num_gpus=.1)
 def ray_dispatch(config, weight, loss_fn, device, client_state: FEDPD_client_state, client_dataloader, eta):
     return client_step(config, weight, loss_fn, device, client_state, client_dataloader, eta)
