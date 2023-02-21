@@ -1,26 +1,28 @@
 import torch
 from tqdm import trange
 import ray
-from utils.general_utils import _evaluate_ray, _evaluate
+from utils.general_utils import _evaluate_ray, _evaluate, _acc_ray
 
 
 class FedAlgorithm(object):
     def __init__(self,
                  init_model,
                  client_dataloaders,
+                 client_dataloaders_test,
                  loss,
                  loggers,
                  config,
                  device
                  ):
         self.client_dataloaders = client_dataloaders
+        self.client_dataloaders_test = client_dataloaders_test
         self.loss = loss
         self.loggers = loggers
         self.config = config
         self.device = device
         self.server_state = self.server_init(init_model)
-        self.client_states = [self.client_init(self.server_state, client_dataloader) for client_dataloader in
-                              self.client_dataloaders]
+        self.client_states = [self.client_init(self.server_state, client_dataloader, client_dataloader_test) for client_dataloader, client_dataloader_test in
+                              zip(self.client_dataloaders, self.client_dataloaders_test)]
 
     def step(self, server_state, client_states, weights):
         # server_state contains the (global) model, (global) auxiliary variables, weights of clients
@@ -76,14 +78,20 @@ class FedAlgorithm(object):
         if active_ids is None:
             active_ids = list(range(len(self.client_states)))
 
-        active_clients = [self.client_dataloaders[i] for i in active_ids]
+        client_dataloaders = [self.client_dataloaders[i] for i in active_ids]
+        client_dataloaders_test = [self.client_dataloaders_test[i] for i in active_ids]
+
         if self.config.use_ray:
             clients_loss = ray.get([_evaluate_ray.remote(self.loss, self.device, self.server_state.model, client_dataloader)
-                                    for client_dataloader in active_clients])
+                                    for client_dataloader in client_dataloaders])
+            clients_acc = ray.get([_acc_ray.remote(self.device, self.server_state.model, client_dataloader_test)
+                                    for client_dataloader_test in client_dataloaders_test])
         else:
-            clients_loss = [_evaluate(self.loss, self.device, self.server_state.model, client_dataloader)
-                            for client_dataloader in active_clients]
-        return clients_loss
+            raise not NotImplementedError
+            #clients_loss, clients_acc = [_evaluate(self.loss, self.device, self.server_state.model, client_dataloader)
+                            #for client_dataloader in active_clients]
+                                    #for client_dataloader in active_clients])
+        return clients_loss, clients_acc
 
 
 class PrimalDualFedAlgorithm(object):

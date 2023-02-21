@@ -72,11 +72,6 @@ def save_model(args, fed_learner):
     return
 
 
-
-
-
-
-
 def _evaluate(loss_fn, device, model, dataloader):
     loss = torch.zeros(1).to(device)
     for data, label in dataloader:
@@ -94,5 +89,17 @@ def _evaluate_ray(loss_fn, device, model, dataloader):
         data = data.to(device)
         label = label.to(device)
         loss += loss_fn(model(data), label)
-
     return loss.item()
+
+@ray.remote(num_gpus=.3, num_cpus=4)
+def _acc_ray(device, model, dataloader):
+    with torch.no_grad():
+        n_data, n_correct = 0, 0
+        for data, label in dataloader:
+            data = data.to(device)
+            label = label.to(device)
+            f_data = model(data)
+            pred = f_data.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+            n_correct += pred.eq(label.view_as(pred)).sum().item()
+            n_data += data.shape[0]
+    return n_correct/n_data

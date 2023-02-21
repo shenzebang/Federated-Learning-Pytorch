@@ -13,6 +13,7 @@ from config import make_parser
 import os
 import json
 import wandb
+from copy import deepcopy
 
 FEDERATED_LEARNERS = {
     'fed-avg': FEDAVG,
@@ -24,9 +25,6 @@ PD_FEDERATED_LEARNERS = {
     'imbalance-fl-res':ImbalanceFLRes,
     'ratioloss-fl': RatioLossFL
 }
-
-
-
 
 
 def main():
@@ -64,6 +62,8 @@ def main():
             raise RuntimeError
         dataset_train = create_imbalance(dataset_train, reduce_classes=reduce_classes,
                                          reduce_to_ratio=args.reduce_to_ratio)
+        datasets_test_imb = create_imbalance(deepcopy(dataset_test), reduce_classes=reduce_classes,
+                                         reduce_to_ratio=args.reduce_to_ratio)
 
     transforms = make_transforms(args, train=True)  # transforms for data augmentation and normalization
     local_datasets = split_dataset(args, dataset_train, transforms)
@@ -72,6 +72,14 @@ def main():
     transforms_test = make_transforms(args, train=False)
     dataset_test.transform = transforms_test
     test_dataloader = make_dataloader(args, dataset_test)
+
+    if args.imbalance:
+        transforms_test_imb = make_transforms(args, train=False)
+        local_datasets_test = split_dataset(args, datasets_test_imb, transforms_test_imb)
+        local_dataloaders_test = [make_dataloader(args, local_dataset_t) for local_dataset_t in local_datasets_test]
+    else:
+        raise NotImplementedError
+    
 
     model = make_model(args, n_classes, n_channels, device, img_size)
 
@@ -94,6 +102,7 @@ def main():
 
     fed_learner = make_fed_learner(init_model=model,
                                    client_dataloaders=local_dataloaders,
+                                   client_dataloaders_test = local_dataloaders_test,
                                    loss=loss,
                                    loggers=None,
                                    config=args,

@@ -46,3 +46,17 @@ def make_evaluate_fn(dataloader, device, eval_type="accuracy", n_classes=0, loss
 
     return evaluate_fn
 
+def evaluate_acc(model, dataloader):
+    with torch.autograd.no_grad():
+        device = model.device
+        n_data = 0
+        n_correct = 0
+        loss = 0
+        for data, label in dataloader:
+            data = data.to(device)
+            label = label.to(device)
+            f_data = model(data)
+            pred = f_data.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+            n_correct += pred.eq(label.view_as(pred)).sum().item()
+            n_data += data.shape[0]
+    return np.true_divide(n_correct, n_data)
