@@ -2,7 +2,7 @@ import time
 import torch
 from utils.data_utils import load_dataset, make_dataloader, split_dataset, create_imbalance, get_auxiliary_data, make_transforms
 from utils.model_utils import make_model
-from utils.logger_utils import Logger
+from utils.logger_utils import wandbLogger
 from utils.test_utils import make_evaluate_fn, make_monitor_fn
 from core.fed_avg import FEDAVG
 from core.fed_pd import FEDPD
@@ -12,6 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from config import make_parser
 import os
 import json
+import wandb
 
 FEDERATED_LEARNERS = {
     'fed-avg': FEDAVG,
@@ -31,7 +32,7 @@ def main():
     # 1. load the configurations
     args = make_parser().parse_args()
     print(args)
-
+    wandb.init(project=args.project, name=args.run)
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     loss = torch.nn.functional.cross_entropy
 
@@ -81,9 +82,9 @@ def main():
     tb_file = args.save_dir+f'/{time.time()}'
     print(f"writing to {tb_file}")
     writer = SummaryWriter(tb_file)
-    logger_accuracy = Logger(writer, test_fn_accuracy, test_metric='accuracy')
-    logger_class_wise_accuracy = Logger(writer, test_fn_class_wise_accuracy, test_metric='class_wise_accuracy')
-    logger_monitor = Logger(writer, statistics_monitor_fn, test_metric='model_monitor')
+    logger_accuracy = wandbLogger(writer, test_fn_accuracy, test_metric='accuracy')
+    logger_class_wise_accuracy = wandbLogger(writer, test_fn_class_wise_accuracy, test_metric='class_wise_accuracy')
+    logger_monitor = wandbLogger(writer, statistics_monitor_fn, test_metric='model_monitor')
     loggers = [logger_accuracy, logger_class_wise_accuracy, logger_monitor]
     # 4. run PD FL
 

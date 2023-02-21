@@ -61,4 +61,7 @@ def make_parser():
     parser.add_argument('--eta', type=float, default=10)
     parser.add_argument('--fed_pd_dual_lr', type=float, default=1)
 
+    # wandb logging
+    parser.add_argument('--run', type=str, default='FL-PD')
+    parser.add_argument('--project', type=str, default='Fed')
     return parser
