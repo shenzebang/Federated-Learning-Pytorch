@@ -93,6 +93,8 @@ def _evaluate_ray(loss_fn, device, model, dataloader):
 
 @ray.remote(num_gpus=.3, num_cpus=4)
 def _acc_ray(device, model, dataloader):
+    training = model.training
+    model.eval()
     with torch.no_grad():
         n_data, n_correct = 0, 0
         for data, label in dataloader:
@@ -102,4 +104,6 @@ def _acc_ray(device, model, dataloader):
             pred = f_data.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             n_correct += pred.eq(label.view_as(pred)).sum().item()
             n_data += data.shape[0]
+    if training:
+        model.train()
     return n_correct/n_data

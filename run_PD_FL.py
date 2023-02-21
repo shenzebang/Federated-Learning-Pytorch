@@ -32,6 +32,7 @@ def main():
     args = make_parser().parse_args()
     print(args)
     wandb.init(project=args.project, name=args.run)
+    wandb.config.update(args)
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     loss = torch.nn.functional.cross_entropy
 
