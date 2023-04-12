@@ -2,6 +2,8 @@ import torch
 import numpy as np
 import ray
 import copy
+from pathlib import Path
+import wandb
 
 
 
@@ -69,6 +71,9 @@ def compute_model_delta(model_1, model_2):
 
 
 def save_model(args, fed_learner):
+    Path('./weights/').mkdir(exist_ok=True, parents=True)
+    torch.save(fed_learner.server_state[1].state_dict(), f'./weights/{wandb.run.id}.pt')
+    wandb.save(f'./weights/{wandb.run.id}.pt', policy = 'now')
     return
 
 

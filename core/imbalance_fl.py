@@ -20,7 +20,8 @@ class ImbalanceFL(PrimalDualFedAlgorithm):
     def step(self):
         sss = self.server_state
         weights = (1. + sss.lambda_var - torch.mean(sss.lambda_var))
-        client_losses, client_accs = torch.tensor(self.primal_fed_algorithm.clients_evaluate())
+        client_losses, client_accs = torch.tensor(self.primal_fed_algorithm.clients_evaluate_train())
+        client_losses_test, client_accs_test = torch.tensor(self.primal_fed_algorithm.clients_evaluate_test())
         self.primal_fed_algorithm.fit(weights, self.config.n_p_steps)
         model_new = self.primal_fed_algorithm.server_state.model
         lambda_new = sss.lambda_var + self.config.lambda_lr * (client_losses - torch.mean(client_losses) - self.config.tolerance_epsilon) / self.config.n_workers
@@ -33,22 +34,23 @@ class ImbalanceFL(PrimalDualFedAlgorithm):
         worst_acc = 1
         worst_loss = -1
         for i in range(len(sss.lambda_var)):
-            if client_losses[i]>worst_loss:
+            if client_losses[i] > worst_loss:
                 worst_loss_idx = i
-                worst_loss = client_losses[i]
-            if client_accs[i]<worst_acc:
+            if client_accs[i] < worst_acc:
                 worst_acc_idx = i
-                worst_acc= client_accs[i]
             wandb.log({f"lambda/client_{i}": sss.lambda_var[i].item()}) 
             wandb.log({f"loss/train/client_{i}": client_losses[i].item()}) 
-            wandb.log({f"accuracy/test/client_{i}": client_accs[i].item()})
-        wandb.log({f"worst_loss": worst_loss.item(),"worst_loss_idx" : worst_loss_idx,
-                     "worst_acc":worst_acc, "worst_acc_idx":worst_acc_idx})
+            wandb.log({f"accuracy/train/client_{i}": client_accs[i].item()})
+            wandb.log({f"loss/test/client_{i}": client_losses_test[i].item()}) 
+            wandb.log({f"accuracy/test/client_{i}": client_accs_test[i].item()})
+        wandb.log({f"worst_loss/train": client_losses[worst_loss_idx].item(),"worst_loss_idx" : worst_loss_idx,
+                     "worst_acc/train":client_accs[worst_acc_idx], "worst_acc_idx":worst_acc_idx})
+        wandb.log({f"worst_loss/test": client_losses_test[worst_loss_idx].item(),
+                    "worst_acc/test": client_accs_test[worst_acc_idx]})
         wandb.log({f"worst_lambda": sss.lambda_var[worst_loss_idx].item()})       
         wandb.log({f"lambda/mean": sss.lambda_var.mean().item()})
 
 ImFL_server_state_res = namedtuple("ImFL_server_state_res", ['global_round', 'model', 'lambda_var', 'perturbation'])
-
 
 class ImbalanceFLRes(PrimalDualFedAlgorithm):
     def __init__(self, fed_algorithm: FedAlgorithm, config, logger, auxiliary_data=None):
@@ -63,7 +65,8 @@ class ImbalanceFLRes(PrimalDualFedAlgorithm):
     def step(self):
         sss = self.server_state
         weights = (1. + sss.lambda_var - torch.mean(sss.lambda_var))
-        client_losses, client_accs = torch.tensor(self.primal_fed_algorithm.clients_evaluate())
+        client_losses, client_accs = torch.tensor(self.primal_fed_algorithm.clients_evaluate_train())
+        client_losses_test, client_accs_test = torch.tensor(self.primal_fed_algorithm.clients_evaluate_test())
         self.primal_fed_algorithm.fit(weights, self.config.n_p_steps)
         model_new = self.primal_fed_algorithm.server_state.model
         lambda_new = sss.lambda_var + self.config.lambda_lr * (client_losses - torch.mean(client_losses) - self.config.tolerance_epsilon) / self.config.n_workers
@@ -74,18 +77,19 @@ class ImbalanceFLRes(PrimalDualFedAlgorithm):
         worst_acc = 1
         worst_loss = -1
         for i in range(len(sss.lambda_var)):
-            if client_losses[i]>worst_loss:
+            if client_losses[i] > worst_loss:
                 worst_loss_idx = i
-                worst_loss = client_losses[i]
-            if client_accs[i]<worst_acc:
+            if client_accs[i] < worst_acc:
                 worst_acc_idx = i
-                worst_acc= client_accs[i]
             wandb.log({f"lambda/client_{i}": sss.lambda_var[i].item()}) 
-            wandb.log({f"perturbation/client_{i}": sss.perturbation[i].item()})
             wandb.log({f"loss/train/client_{i}": client_losses[i].item()}) 
-            wandb.log({f"accuracy/test/client_{i}": client_accs[i].item()})
-        wandb.log({f"worst_loss": worst_loss.item(),"worst_loss_idx" : worst_loss_idx,
-                     "worst_acc":worst_acc, "worst_acc_idx":worst_acc_idx})
+            wandb.log({f"accuracy/train/client_{i}": client_accs[i].item()})
+            wandb.log({f"loss/test/client_{i}": client_losses_test[i].item()}) 
+            wandb.log({f"accuracy/test/client_{i}": client_accs_test[i].item()})
+        wandb.log({f"worst_loss/train": client_losses[worst_loss_idx].item(),"worst_loss_idx" : worst_loss_idx,
+                     "worst_acc/train":client_accs[worst_acc_idx], "worst_acc_idx":worst_acc_idx})
+        wandb.log({f"worst_loss/test": client_losses_test[worst_loss_idx].item(),
+                    "worst_acc/test": client_accs_test[worst_acc_idx]})
         wandb.log({f"worst_lambda": sss.lambda_var[worst_loss_idx].item(),
                     "worst_perturbation": sss.perturbation[worst_loss_idx].item()})   
         wandb.log({f"lambda/mean": sss.lambda_var.mean().item()}) 

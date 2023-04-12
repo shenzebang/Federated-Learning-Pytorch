@@ -1,9 +1,11 @@
+from math import log
 import torch
 import numpy as np
 import torchvision.datasets as datasets
 from torchvision.datasets import VisionDataset
 from torchvision import transforms
 from torch.utils.data import DataLoader
+import wandb
 
 
 def get_auxiliary_data(config, transforms, dataset, n_classes, n_aux):
@@ -198,6 +200,19 @@ def split_dataset(args, dataset: VisionDataset, transform=None):
         label_list = [label[idx_worker[curr_worker]] for curr_worker in range(n_workers)]
     else:
         raise ValueError("heterogeneity should be mix or dir")
+    ##################
+    # Log imbalance
+    ###################
+    n_cls = 10 ## TODO: Fix this
+    for client in range(n_workers):
+        label = label_list[client]
+        entropy = 0
+        for cls in range(n_cls):
+            frac = (torch.sum(label==cls)/len(label)).item()
+            wandb.log({f"frac_samples/client_{client}/class_{cls}":frac})
+            if frac>0:
+                entropy += -frac*log(frac)
+        wandb.log({f"entropy/client_{client}":entropy})
 
     return [make_dataset(_data, _label, dataset.train, transform) for _data, _label in zip(data_list, label_list)]
 

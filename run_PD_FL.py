@@ -1,5 +1,6 @@
 import time
 import torch
+from utils.general_utils import save_model
 from utils.data_utils import load_dataset, make_dataloader, split_dataset, create_imbalance, get_auxiliary_data, make_transforms
 from utils.model_utils import make_model
 from utils.logger_utils import wandbLogger
@@ -109,7 +110,6 @@ def main():
                                    config=args,
                                    device=device
                                    )
-
     n_aux = 5
     auxiliary_data = get_auxiliary_data(args, transforms_test, dataset_train, n_classes,
                                         n_aux) if args.formulation == "ratioloss-fl" else None
@@ -119,7 +119,7 @@ def main():
     pd_fed_learner.fit()
 
     # # 4. save the model
-    # save_model(args, fed_learner)
+    save_model(args, pd_fed_learner)
 
 
 if __name__ == '__main__':

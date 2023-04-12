@@ -92,6 +92,42 @@ class FedAlgorithm(object):
                             #for client_dataloader in active_clients]
                                     #for client_dataloader in active_clients])
         return clients_loss, clients_acc
+    
+    def clients_evaluate_train(self, active_ids=None):
+        if active_ids is None:
+            active_ids = list(range(len(self.client_states)))
+
+        client_dataloaders = [self.client_dataloaders[i] for i in active_ids]
+
+        if self.config.use_ray:
+            clients_loss = ray.get([_evaluate_ray.remote(self.loss, self.device, self.server_state.model, client_dataloader)
+                                    for client_dataloader in client_dataloaders])
+            clients_acc = ray.get([_acc_ray.remote(self.device, self.server_state.model, client_dataloader)
+                                    for client_dataloader in client_dataloaders])
+        else:
+            raise not NotImplementedError
+            #clients_loss, clients_acc = [_evaluate(self.loss, self.device, self.server_state.model, client_dataloader)
+                            #for client_dataloader in active_clients]
+                                    #for client_dataloader in active_clients])
+        return clients_loss, clients_acc
+    
+    def clients_evaluate_test(self, active_ids=None):
+        if active_ids is None:
+            active_ids = list(range(len(self.client_states)))
+
+        client_dataloaders_test = [self.client_dataloaders_test[i] for i in active_ids]
+
+        if self.config.use_ray:
+            clients_loss = ray.get([_evaluate_ray.remote(self.loss, self.device, self.server_state.model, client_dataloader_test)
+                                    for client_dataloader_test in client_dataloaders_test])
+            clients_acc = ray.get([_acc_ray.remote(self.device, self.server_state.model, client_dataloader_test)
+                                    for client_dataloader_test in client_dataloaders_test])
+        else:
+            raise not NotImplementedError
+            #clients_loss, clients_acc = [_evaluate(self.loss, self.device, self.server_state.model, client_dataloader)
+                            #for client_dataloader in active_clients]
+                                    #for client_dataloader in active_clients])
+        return clients_loss, clients_acc
 
 
 class PrimalDualFedAlgorithm(object):
