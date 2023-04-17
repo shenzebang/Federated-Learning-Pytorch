@@ -122,7 +122,7 @@ def load_dataset(args):
 
     return dataset_train, dataset_test, n_classes, n_channels, img_size
 
-def split_dataset(args, dataset: VisionDataset, transform=None):
+def split_dataset(args, dataset: VisionDataset, transform=None, ratio_per_client=None):
     data = dataset.data
     data = data.numpy() if torch.is_tensor(data) is True else data
     label = dataset.targets
@@ -133,88 +133,135 @@ def split_dataset(args, dataset: VisionDataset, transform=None):
     if n_workers == 1:
         return [make_dataset(data, label, dataset.train, transform)]
 
+    if ratio_per_client is None:
+        if args.heterogeneity == 'mix':
+            n_data = data.shape[0]
 
-    if args.heterogeneity == 'mix':
-        n_data = data.shape[0]
+            n_homo_data = int(n_data * homo_ratio)
 
-        n_homo_data = int(n_data * homo_ratio)
+            n_homo_data = n_homo_data - n_homo_data % n_workers
+            n_data = n_data - n_data % n_workers
 
-        n_homo_data = n_homo_data - n_homo_data % n_workers
-        n_data = n_data - n_data % n_workers
+            if n_homo_data > 0:
+                data_homo, label_homo = data[0:n_homo_data], label[0:n_homo_data]
+                data_homo_list, label_homo_list = np.split(data_homo, n_workers), label_homo.chunk(n_workers)
 
-        if n_homo_data > 0:
-            data_homo, label_homo = data[0:n_homo_data], label[0:n_homo_data]
-            data_homo_list, label_homo_list = np.split(data_homo, n_workers), label_homo.chunk(n_workers)
+            if n_homo_data < n_data:
+                data_hetero, label_hetero = data[n_homo_data:n_data], label[n_homo_data:n_data]
+                label_hetero_sorted, index = torch.sort(label_hetero)
+                data_hetero_sorted = data_hetero[index]
 
-        if n_homo_data < n_data:
-            data_hetero, label_hetero = data[n_homo_data:n_data], label[n_homo_data:n_data]
-            label_hetero_sorted, index = torch.sort(label_hetero)
-            data_hetero_sorted = data_hetero[index]
+                data_hetero_list, label_hetero_list = np.split(data_hetero_sorted, n_workers), label_hetero_sorted.chunk(
+                    n_workers)
 
-            data_hetero_list, label_hetero_list = np.split(data_hetero_sorted, n_workers), label_hetero_sorted.chunk(
-                n_workers)
+            if 0 < n_homo_data < n_data:
+                data_list = [np.concatenate([data_homo, data_hetero], axis=0) for data_homo, data_hetero in
+                            zip(data_homo_list, data_hetero_list)]
+                label_list = [torch.cat([label_homo, label_hetero], dim=0) for label_homo, label_hetero in
+                            zip(label_homo_list, label_hetero_list)]
+            elif n_homo_data < n_data:
+                data_list = data_hetero_list
+                label_list = label_hetero_list
+            else:
+                data_list = data_homo_list
+                label_list = label_homo_list
 
-        if 0 < n_homo_data < n_data:
-            data_list = [np.concatenate([data_homo, data_hetero], axis=0) for data_homo, data_hetero in
-                         zip(data_homo_list, data_hetero_list)]
-            label_list = [torch.cat([label_homo, label_hetero], dim=0) for label_homo, label_hetero in
-                          zip(label_homo_list, label_hetero_list)]
-        elif n_homo_data < n_data:
-            data_list = data_hetero_list
-            label_list = label_hetero_list
+        elif args.heterogeneity == 'dir':
+            n_cls = (int(torch.max(label))) + 1
+            n_data = data.shape[0]
+
+            cls_priors = np.random.dirichlet(alpha=[args.dir_level] * n_cls, size=n_workers)
+
+            # cls_priors_init = cls_priors # Used for verification
+            prior_cumsum = np.cumsum(cls_priors, axis=1)
+            idx_list = [np.where(label == i)[0] for i in range(n_cls)]
+            cls_amount = [len(idx_list[i]) for i in range(n_cls)]
+            idx_worker = [[None] for i in range(n_workers)]
+
+            for curr_worker in range(n_workers):
+                for data_sample in range(n_data // n_workers):
+                    curr_prior = prior_cumsum[curr_worker]
+                    cls_label = np.argmax(np.random.uniform() <= curr_prior)
+                    while cls_amount[cls_label] <= 0:
+                        # If you run out of samples
+                        correction = [[1 - cls_priors[i, cls_label]] * n_cls for i in range(n_workers)]
+                        cls_priors = cls_priors / correction
+                        cls_priors[:, cls_label] = [0] * n_workers
+                        curr_prior = np.cumsum(cls_priors, axis=1)
+                        cls_label = np.argmax(np.random.uniform() <= curr_prior)
+
+                    cls_amount[cls_label] -= 1
+                    if idx_worker[curr_worker] == [None]:
+                        idx_worker[curr_worker] = [idx_list[cls_label][0]]
+                    else:
+                        idx_worker[curr_worker] = idx_worker[curr_worker] + [idx_list[cls_label][0]]
+
+                    idx_list[cls_label] = idx_list[cls_label][1::]
+            data_list = [data[idx_worker[curr_worker]] for curr_worker in range(n_workers)]
+            label_list = [label[idx_worker[curr_worker]] for curr_worker in range(n_workers)]
         else:
-            data_list = data_homo_list
-            label_list = label_homo_list
-
-    elif args.heterogeneity == 'dir':
+            raise ValueError("heterogeneity should be mix or dir")
+    else:
         n_cls = (int(torch.max(label))) + 1
         n_data = data.shape[0]
-
-        cls_priors = np.random.dirichlet(alpha=[args.dir_level] * n_cls, size=n_workers)
-        # cls_priors_init = cls_priors # Used for verification
-        prior_cumsum = np.cumsum(cls_priors, axis=1)
+        # normalize prior
+        cls_priors = ratio_per_client
         idx_list = [np.where(label == i)[0] for i in range(n_cls)]
         cls_amount = [len(idx_list[i]) for i in range(n_cls)]
         idx_worker = [[None] for i in range(n_workers)]
-
+        data_per_worker = n_data // n_workers
+        data_idx = np.arange(n_data)
         for curr_worker in range(n_workers):
-            for data_sample in range(n_data // n_workers):
-                curr_prior = prior_cumsum[curr_worker]
-                cls_label = np.argmax(np.random.uniform() <= curr_prior)
-                while cls_amount[cls_label] <= 0:
-                    # If you run out of samples
-                    correction = [[1 - cls_priors[i, cls_label]] * n_cls for i in range(n_workers)]
-                    cls_priors = cls_priors / correction
-                    cls_priors[:, cls_label] = [0] * n_workers
-                    curr_prior = np.cumsum(cls_priors, axis=1)
-                    cls_label = np.argmax(np.random.uniform() <= curr_prior)
+            assert(len(data_idx)>=data_per_worker)
+            data_prob = np.zeros(len(data_idx))
+            choice_idx = np.arange(len(data_idx))
+            curr_prior = cls_priors[curr_worker]
+            assert(curr_prior.sum()>0)
+            for cls_idxs, prob in zip(idx_list, curr_prior):
+                data_prob[cls_idxs] = prob
+            num_samples = min(data_per_worker, np.count_nonzero(data_prob))
+            if num_samples>0:
+                data_prob = data_prob/data_prob.sum()
+                chosen_idx = np.random.choice(choice_idx, size=num_samples, replace=False, p=data_prob)
+                chosen_data = data_idx[chosen_idx]
+                # remove from label index list
+                data_idx  = np.delete(data_idx, chosen_idx)
+            if num_samples<data_per_worker:
+                choice_idx = np.arange(len(data_idx))
+                add_samples = np.random.choice(choice_idx, size=data_per_worker-num_samples, replace=False)
+                chosen_data = np.concatenate((chosen_data, data_idx[add_samples]))
+                data_idx  = np.delete(data_idx, add_samples)
 
-                cls_amount[cls_label] -= 1
-                if idx_worker[curr_worker] == [None]:
-                    idx_worker[curr_worker] = [idx_list[cls_label][0]]
-                else:
-                    idx_worker[curr_worker] = idx_worker[curr_worker] + [idx_list[cls_label][0]]
-
-                idx_list[cls_label] = idx_list[cls_label][1::]
+            idx_worker[curr_worker] = chosen_data
+            
+            # recompute class idxs
+            remaining_labels = label[data_idx]
+            idx_list = [np.where(remaining_labels == i)[0] for i in range(n_cls)]
+            
+            
         data_list = [data[idx_worker[curr_worker]] for curr_worker in range(n_workers)]
         label_list = [label[idx_worker[curr_worker]] for curr_worker in range(n_workers)]
-    else:
-        raise ValueError("heterogeneity should be mix or dir")
     ##################
     # Log imbalance
     ###################
     n_cls = 10 ## TODO: Fix this
+    clients_post = []
     for client in range(n_workers):
         label = label_list[client]
         entropy = 0
+        cls_post = []
         for cls in range(n_cls):
             frac = (torch.sum(label==cls)/len(label)).item()
-            wandb.log({f"frac_samples/client_{client}/class_{cls}":frac})
+            assert(not np.isnan(frac))
+            cls_post.append(frac)
+            #wandb.log({f"frac_samples/client_{client}/class_{cls}":frac})
             if frac>0:
                 entropy += -frac*log(frac)
-        wandb.log({f"entropy/client_{client}":entropy})
+        assert(np.sum(cls_post)>0)
+        #wandb.log({f"entropy/client_{client}":entropy})
+        clients_post.append(cls_post)
 
-    return [make_dataset(_data, _label, dataset.train, transform) for _data, _label in zip(data_list, label_list)]
+    return [make_dataset(_data, _label, dataset.train, transform) for _data, _label in zip(data_list, label_list)], np.array(clients_post)
 
 
 class LocalDataset(VisionDataset):
@@ -304,8 +351,8 @@ def make_transforms(args, train=True):
     return transform
 
 
-def make_dataloader(args, dataset: LocalDataset):
-    if dataset.train is True:
+def make_dataloader(args, dataset: LocalDataset, distributed=True):
+    if distributed:
         batch_size = dataset.data.shape[0] // args.client_step_per_epoch
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     else:

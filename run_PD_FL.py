@@ -68,7 +68,7 @@ def main():
                                          reduce_to_ratio=args.reduce_to_ratio)
 
     transforms = make_transforms(args, train=True)  # transforms for data augmentation and normalization
-    local_datasets = split_dataset(args, dataset_train, transforms)
+    local_datasets, class_distribution = split_dataset(args, dataset_train, transforms)
     local_dataloaders = [make_dataloader(args, local_dataset) for local_dataset in local_datasets]
 
     transforms_test = make_transforms(args, train=False)
@@ -77,8 +77,8 @@ def main():
 
     if args.imbalance:
         transforms_test_imb = make_transforms(args, train=False)
-        local_datasets_test = split_dataset(args, datasets_test_imb, transforms_test_imb)
-        local_dataloaders_test = [make_dataloader(args, local_dataset_t) for local_dataset_t in local_datasets_test]
+        local_datasets_test, _ = split_dataset(args, datasets_test_imb, transforms_test_imb, ratio_per_client=class_distribution)
+        local_dataloaders_test = [make_dataloader(args, local_dataset_t, distributed=False) for local_dataset_t in local_datasets_test]
     else:
         raise NotImplementedError
     
