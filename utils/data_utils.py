@@ -225,18 +225,18 @@ def split_dataset(args, dataset: VisionDataset, transform=None, ratio_per_client
                 chosen_idx = np.random.choice(choice_idx, size=num_samples, replace=False, p=data_prob)
                 chosen_data = data_idx[chosen_idx]
                 # remove from label index list
-                data_idx  = np.delete(data_idx, chosen_idx)
+                #data_idx  = np.delete(data_idx, chosen_idx)
             if num_samples<data_per_worker:
                 choice_idx = np.arange(len(data_idx))
                 add_samples = np.random.choice(choice_idx, size=data_per_worker-num_samples, replace=False)
                 chosen_data = np.concatenate((chosen_data, data_idx[add_samples]))
-                data_idx  = np.delete(data_idx, add_samples)
+                #data_idx  = np.delete(data_idx, add_samples)
 
             idx_worker[curr_worker] = chosen_data
             
             # recompute class idxs
-            remaining_labels = label[data_idx]
-            idx_list = [np.where(remaining_labels == i)[0] for i in range(n_cls)]
+            #remaining_labels = label[data_idx]
+            #idx_list = [np.where(remaining_labels == i)[0] for i in range(n_cls)]
             
             
         data_list = [data[idx_worker[curr_worker]] for curr_worker in range(n_workers)]
