@@ -254,11 +254,11 @@ def split_dataset(args, dataset: VisionDataset, transform=None, ratio_per_client
             frac = (torch.sum(label==cls)/len(label)).item()
             assert(not np.isnan(frac))
             cls_post.append(frac)
-            #wandb.log({f"frac_samples/client_{client}/class_{cls}":frac})
+            wandb.log({f"frac_samples/client_{client}/class_{cls}":frac})
             if frac>0:
                 entropy += -frac*log(frac)
         assert(np.sum(cls_post)>0)
-        #wandb.log({f"entropy/client_{client}":entropy})
+        wandb.log({f"entropy/client_{client}":entropy})
         clients_post.append(cls_post)
 
     return [make_dataset(_data, _label, dataset.train, transform) for _data, _label in zip(data_list, label_list)], np.array(clients_post)
