@@ -76,7 +76,7 @@ def main():
     if args.imbalance:
         transforms_test_imb = make_transforms(args, train=False)
         local_datasets_test, _ = split_dataset(args, dataset_test, transforms_test_imb, ratio_per_client=class_distribution)
-        local_dataloaders_test = [make_dataloader(args, local_dataset_t, distributed=False) for local_dataset_t in local_datasets_test]
+        local_dataloaders_test = [make_dataloader(args, local_dataset_t) for local_dataset_t in local_datasets_test]
     else:
         raise NotImplementedError
     
