@@ -94,7 +94,7 @@ def main():
     logger_accuracy = wandbLogger(writer, test_fn_accuracy, test_metric='accuracy')
     logger_class_wise_accuracy = wandbLogger(writer, test_fn_class_wise_accuracy, test_metric='class_wise_accuracy')
     logger_monitor = wandbLogger(writer, statistics_monitor_fn, test_metric='model_monitor')
-    loggers = [logger_accuracy, logger_class_wise_accuracy, logger_monitor]
+    loggers = []#[logger_accuracy, logger_class_wise_accuracy, logger_monitor]
     # 4. run PD FL
 
     make_pd_fed_learner = PD_FEDERATED_LEARNERS[args.formulation]
