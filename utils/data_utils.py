@@ -122,7 +122,7 @@ def load_dataset(args):
 
     return dataset_train, dataset_test, n_classes, n_channels, img_size
 
-def split_dataset(args, dataset: VisionDataset, transform=None, ratio_per_client=None):
+def split_dataset(args, dataset: VisionDataset, transform=None, ratio_per_client=None, test_sz=.1):
     data = dataset.data
     data = data.numpy() if torch.is_tensor(data) is True else data
     label = dataset.targets
@@ -204,61 +204,55 @@ def split_dataset(args, dataset: VisionDataset, transform=None, ratio_per_client
     else:
         n_cls = (int(torch.max(label))) + 1
         n_data = data.shape[0]
-        # normalize prior
         cls_priors = ratio_per_client
+        # compute number of samples
+        data_per_worker = test_sz*n_data*cls_priors/n_cls
         idx_list = [np.where(label == i)[0] for i in range(n_cls)]
+        samples_per_class = [len(idxs) for idxs in idx_list]
+        # check there's enough data
+        assert(min(samples_per_class)>cls_priors.max()*test_sz*n_data/n_cls)
         cls_amount = [len(idx_list[i]) for i in range(n_cls)]
-        idx_worker = [[None] for i in range(n_workers)]
-        data_per_worker = n_data // n_workers
-        data_idx = np.arange(n_data)
+        idx_worker = [[] for i in range(n_workers)]
         for curr_worker in range(n_workers):
-            assert(len(data_idx)>=data_per_worker)
-            data_prob = np.zeros(len(data_idx))
-            choice_idx = np.arange(len(data_idx))
-            curr_prior = cls_priors[curr_worker]
-            assert(curr_prior.sum()>0)
-            for cls_idxs, prob in zip(idx_list, curr_prior):
-                data_prob[cls_idxs] = prob
-            num_samples = min(data_per_worker, np.count_nonzero(data_prob))
-            if num_samples>0:
-                data_prob = data_prob/data_prob.sum()
-                chosen_idx = np.random.choice(choice_idx, size=num_samples, replace=False, p=data_prob)
-                chosen_data = data_idx[chosen_idx]
-                # remove from label index list
-                #data_idx  = np.delete(data_idx, chosen_idx)
-            if num_samples<data_per_worker:
-                choice_idx = np.arange(len(data_idx))
-                add_samples = np.random.choice(choice_idx, size=data_per_worker-num_samples, replace=False)
-                chosen_data = np.concatenate((chosen_data, data_idx[add_samples]))
-                #data_idx  = np.delete(data_idx, add_samples)
-
-            idx_worker[curr_worker] = chosen_data
-            
-            # recompute class idxs
-            #remaining_labels = label[data_idx]
-            #idx_list = [np.where(remaining_labels == i)[0] for i in range(n_cls)]
-            
-            
+            for cls_idxs, num_samples in zip(idx_list, data_per_worker[curr_worker]):
+                # floor num samples
+                num_samples = int(num_samples)
+                if num_samples>0:
+                    # choose randomly
+                    chosen_idx = np.random.choice(cls_idxs, size=num_samples, replace=False)
+                    idx_worker[curr_worker] = idx_worker[curr_worker]+chosen_idx.tolist()
+            assert(len(idx_worker[curr_worker]))          
         data_list = [data[idx_worker[curr_worker]] for curr_worker in range(n_workers)]
         label_list = [label[idx_worker[curr_worker]] for curr_worker in range(n_workers)]
     ##################
     # Log imbalance
     ###################
-    n_cls = 10 ## TODO: Fix this
+    n_cls = (int(torch.max(label))) + 1 
     clients_post = []
     for client in range(n_workers):
         label = label_list[client]
         entropy = 0
         cls_post = []
+        minority_frac = 0
         for cls in range(n_cls):
             frac = (torch.sum(label==cls)/len(label)).item()
             assert(not np.isnan(frac))
             cls_post.append(frac)
-            wandb.log({f"frac_samples/client_{client}/class_{cls}":frac})
+            if ratio_per_client is None:
+                wandb.log({f"frac_samples/client_{client}/class_{cls}/train":frac})
+            else:
+                wandb.log({f"frac_samples/client_{client}/class_{cls}/test":frac})
             if frac>0:
                 entropy += -frac*log(frac)
+            if cls in [0, 2, 4]:
+                minority_frac += frac
         assert(np.sum(cls_post)>0)
-        wandb.log({f"entropy/client_{client}":entropy})
+        if ratio_per_client is None:
+            wandb.log({f"entropy/client_{client}/train":entropy})
+            wandb.log({f"frac_minority/client_{client}/train":minority_frac})
+        else:
+            wandb.log({f"entropy/client_{client}/test":entropy})
+            wandb.log({f"frac_minority/client_{client}/test":minority_frac})
         clients_post.append(cls_post)
 
     return [make_dataset(_data, _label, dataset.train, transform) for _data, _label in zip(data_list, label_list)], np.array(clients_post)

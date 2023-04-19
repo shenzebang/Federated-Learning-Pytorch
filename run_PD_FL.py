@@ -64,8 +64,6 @@ def main():
             raise RuntimeError
         dataset_train = create_imbalance(dataset_train, reduce_classes=reduce_classes,
                                          reduce_to_ratio=args.reduce_to_ratio)
-        datasets_test_imb = create_imbalance(deepcopy(dataset_test), reduce_classes=reduce_classes,
-                                         reduce_to_ratio=args.reduce_to_ratio)
 
     transforms = make_transforms(args, train=True)  # transforms for data augmentation and normalization
     local_datasets, class_distribution = split_dataset(args, dataset_train, transforms)
@@ -77,7 +75,7 @@ def main():
 
     if args.imbalance:
         transforms_test_imb = make_transforms(args, train=False)
-        local_datasets_test, _ = split_dataset(args, datasets_test_imb, transforms_test_imb, ratio_per_client=class_distribution)
+        local_datasets_test, _ = split_dataset(args, dataset_test, transforms_test_imb, ratio_per_client=class_distribution)
         local_dataloaders_test = [make_dataloader(args, local_dataset_t, distributed=False) for local_dataset_t in local_datasets_test]
     else:
         raise NotImplementedError
