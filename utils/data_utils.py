@@ -345,11 +345,12 @@ def make_transforms(args, train=True):
     return transform
 
 
-def make_dataloader(args, dataset: LocalDataset, distributed=True):
-    if distributed:
-        batch_size = dataset.data.shape[0] // args.client_step_per_epoch
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+def make_dataloader(args, dataset: LocalDataset, distributed=True, train=True):
+    if train:
+        batch_size = dataset.data.shape[0]
     else:
-        dataloader = DataLoader(dataset, batch_size=args.test_batch_size, shuffle=False, num_workers=4)
-
+        batch_size=args.test_batch_size
+    if distributed:
+        batch_size =  batch_size// args.client_step_per_epoch
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=train, num_workers=0)
     return dataloader
