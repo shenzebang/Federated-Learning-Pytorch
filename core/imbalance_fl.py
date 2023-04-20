@@ -48,8 +48,7 @@ class ImbalanceFL(PrimalDualFedAlgorithm):
         wandb.log({f"worst_loss/test": client_losses_test[worst_loss_idx].item(),
                     "worst_acc/test": client_accs_test[worst_acc_idx]})
         wandb.log({f"worst_lambda": sss.lambda_var[worst_loss_idx].item()})       
-        wandb.log({f"lambda/mean": sss.lambda_var.mean().item()}) 
-        wandb.log({f"perturbation/mean": sss.perturbation.mean().item()})
+        wandb.log({f"lambda/mean": sss.lambda_var.mean().item()})
         wandb.log({f"loss/train/mean": client_losses.mean().item()}) 
         wandb.log({f"accuracy/train/mean": client_accs.mean().item()})
         wandb.log({f"loss/test/mean": client_losses_test.mean().item()}) 
