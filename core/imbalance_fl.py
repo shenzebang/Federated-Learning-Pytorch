@@ -48,11 +48,11 @@ class ImbalanceFL(PrimalDualFedAlgorithm):
         wandb.log({f"worst_loss/test": client_losses_test[worst_loss_idx].item(),
                     "worst_acc/test": client_accs_test[worst_acc_idx]})
         wandb.log({f"worst_lambda": sss.lambda_var[worst_loss_idx].item()})       
-        wandb.log({f"lambda/mean": sss.lambda_var.mean().item()})
-        wandb.log({f"loss/train/mean": client_losses.mean().item()}) 
-        wandb.log({f"accuracy/train/mean": client_accs.mean().item()})
-        wandb.log({f"loss/test/mean": client_losses_test.mean().item()}) 
-        wandb.log({f"accuracy/test/mean": client_accs_test.mean().item()})
+        wandb.log({f"lambda/mean": sss.lambda_var.mean().item(),
+                    f"loss/train/mean": client_losses.mean().item(),
+                    f"accuracy/train/mean": client_accs.mean().item(),
+                    f"loss/test/mean": client_losses_test.mean().item(),
+                    f"accuracy/test/mean": client_accs_test.mean().item()}) 
 
 ImFL_server_state_res = namedtuple("ImFL_server_state_res", ['global_round', 'model', 'lambda_var', 'perturbation'])
 
@@ -97,9 +97,9 @@ class ImbalanceFLRes(PrimalDualFedAlgorithm):
                     "worst_acc/test": client_accs_test[worst_acc_idx]})
         wandb.log({f"worst_lambda": sss.lambda_var[worst_loss_idx].item(),
                     "worst_perturbation": sss.perturbation[worst_loss_idx].item()})   
-        wandb.log({f"lambda/mean": sss.lambda_var.mean().item()}) 
-        wandb.log({f"perturbation/mean": sss.perturbation.mean().item()})
-        wandb.log({f"loss/train/mean": client_losses.mean().item()}) 
-        wandb.log({f"accuracy/train/mean": client_accs.mean().item()})
-        wandb.log({f"loss/test/mean": client_losses_test.mean().item()}) 
-        wandb.log({f"accuracy/test/mean": client_accs_test.mean().item()})              
+        wandb.log({f"lambda/mean": sss.lambda_var.mean().item(),
+                    f"perturbation/mean": sss.perturbation.mean().item(),
+                    f"loss/train/mean": client_losses.mean().item(),
+                    f"accuracy/train/mean": client_accs.mean().item(),
+                    f"loss/test/mean": client_losses_test.mean().item(),
+                    f"accuracy/test/mean": client_accs_test.mean().item()})           
