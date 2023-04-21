@@ -78,11 +78,12 @@ def save_model(args, fed_learner):
 
 
 def _evaluate(loss_fn, device, model, dataloader):
-    loss = torch.zeros(1).to(device)
-    for data, label in dataloader:
-        data = data.to(device)
-        label = label.to(device)
-        loss += loss_fn(model(data), label)
+    with torch.no_grad():
+        loss = torch.zeros(1).to(device)
+        for data, label in dataloader:
+            data = data.to(device)
+            label = label.to(device)
+            loss += loss_fn(model(data), label)
 
     return loss.item()
 
