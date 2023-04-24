@@ -3,6 +3,8 @@ import argparse
 def make_parser():
     parser = argparse.ArgumentParser()
 
+    parser.add_argument('--seed', type=int, default=0, help='Random seed For Reproducibility.')
+
     # general configurations
     parser.add_argument('--n_pd_rounds', type=int, default=5000, help='total dual rounds for PDFL')
     parser.add_argument('--n_global_rounds', type=int, default=5000, help='total communication rounds for FL')
