@@ -1,6 +1,6 @@
 import time
 import torch
-from utils.general_utils import save_model
+from utils.general_utils import save_model, seed_everything
 from utils.data_utils import load_dataset, make_dataloader, split_dataset, create_imbalance, get_auxiliary_data, make_transforms
 from utils.model_utils import make_model
 from utils.logger_utils import wandbLogger
@@ -32,6 +32,7 @@ def main():
     # 1. load the configurations
     args = make_parser().parse_args()
     print(args)
+    seed_everything(args.seed)
     wandb.init(project=args.project, name=args.run)
     wandb.config.update(args)
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
@@ -66,14 +67,14 @@ def main():
                                          reduce_to_ratio=args.reduce_to_ratio)
 
     transforms = make_transforms(args, train=True)  # transforms for data augmentation and normalization
-    local_datasets, class_distribution = split_dataset(args, dataset_train, transforms)
+    local_datasets, class_distribution = split_dataset(args, dataset_train, transforms, reduce_classes=reduce_classes)
     local_dataloaders = [make_dataloader(args, local_dataset) for local_dataset in local_datasets]
 
     transforms_test = make_transforms(args, train=False)
     dataset_test.transform = transforms_test
     test_dataloader = make_dataloader(args, dataset_test)
 
-    local_datasets_test, _ = split_dataset(args, dataset_test, transforms_test, ratio_per_client=class_distribution)
+    local_datasets_test, _ = split_dataset(args, dataset_test, transforms_test, ratio_per_client=class_distribution, reduce_classes=reduce_classes)
     local_dataloaders_test = [make_dataloader(args, local_dataset_t) for local_dataset_t in local_datasets_test]
     
 
@@ -81,7 +82,7 @@ def main():
 
     test_fn_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='accuracy', n_classes=n_classes, loss_fn=loss)
     test_fn_class_wise_accuracy = make_evaluate_fn(test_dataloader, device, eval_type='class_wise_accuracy', n_classes=n_classes)
-    statistics_monitor_fn = make_monitor_fn()
+    #statistics_monitor_fn = make_monitor_fn()
 
     # 3. prepare logger
     tb_file = args.save_dir+f'/{time.time()}'
@@ -89,8 +90,8 @@ def main():
     writer = SummaryWriter(tb_file)
     logger_accuracy = wandbLogger(writer, test_fn_accuracy, test_metric='accuracy')
     logger_class_wise_accuracy = wandbLogger(writer, test_fn_class_wise_accuracy, test_metric='class_wise_accuracy')
-    logger_monitor = wandbLogger(writer, statistics_monitor_fn, test_metric='model_monitor')
-    loggers = []#[logger_accuracy, logger_class_wise_accuracy, logger_monitor]
+    #logger_monitor = wandbLogger(writer, statistics_monitor_fn, test_metric='model_monitor')
+    loggers = [logger_accuracy, logger_class_wise_accuracy]
     # 4. run PD FL
 
     make_pd_fed_learner = PD_FEDERATED_LEARNERS[args.formulation]

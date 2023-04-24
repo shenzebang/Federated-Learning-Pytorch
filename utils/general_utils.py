@@ -1,8 +1,10 @@
 import torch
 import numpy as np
 import ray
+import random
 import copy
 from pathlib import Path
+import os
 import wandb
 
 
@@ -83,7 +85,6 @@ def _evaluate(loss_fn, device, model, dataloader):
         data = data.to(device)
         label = label.to(device)
         loss += loss_fn(model(data), label)
-
     return loss.item()
 
 
@@ -112,3 +113,11 @@ def _acc_ray(device, model, dataloader):
     if training:
         model.train()
     return n_correct/n_data
+
+def seed_everything(seed):
+  random.seed(seed)
+  os.environ['PYTHONHASHSEED'] = str(seed)
+  np.random.seed(seed)
+  torch.manual_seed(seed)
+  torch.cuda.manual_seed(seed)
+  torch.backends.cudnn.deterministic = True

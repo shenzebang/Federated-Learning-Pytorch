@@ -118,11 +118,10 @@ class FedAlgorithm(object):
         client_dataloaders_test = [self.client_dataloaders_test[i] for i in active_ids]
 
         if self.config.use_ray:
-            with torch.no_grad():
-                clients_loss_test = ray.get([_evaluate_ray.remote(self.loss, self.device, self.server_state.model, client_dataloader_test)
-                                    for client_dataloader_test in client_dataloaders_test])
-                clients_acc_test = ray.get([_acc_ray.remote(self.device, self.server_state.model, client_dataloader_test)
-                                    for client_dataloader_test in client_dataloaders_test])
+            clients_loss_test = ray.get([_evaluate_ray.remote(self.loss, self.device, self.server_state.model, client_dataloader_test)
+                                for client_dataloader_test in client_dataloaders_test])
+            clients_acc_test = ray.get([_acc_ray.remote(self.device, self.server_state.model, client_dataloader_test)
+                                for client_dataloader_test in client_dataloaders_test])
         else:
             raise not NotImplementedError
             #clients_loss, clients_acc = [_evaluate(self.loss, self.device, self.server_state.model, client_dataloader)

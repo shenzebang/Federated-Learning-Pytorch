@@ -122,7 +122,7 @@ def load_dataset(args):
 
     return dataset_train, dataset_test, n_classes, n_channels, img_size
 
-def split_dataset(args, dataset: VisionDataset, transform=None, ratio_per_client=None, test_sz=.1):
+def split_dataset(args, dataset: VisionDataset, transform=None, ratio_per_client=None, test_sz=.1, reduce_classes=[0, 2, 4]):
     data = dataset.data
     data = data.numpy() if torch.is_tensor(data) is True else data
     label = dataset.targets
@@ -244,7 +244,7 @@ def split_dataset(args, dataset: VisionDataset, transform=None, ratio_per_client
                 wandb.log({f"frac_samples/client_{client}/class_{cls}/test":frac})
             if frac>0:
                 entropy += -frac*log(frac)
-            if cls in [0, 2, 4]:
+            if cls in reduce_classes:
                 minority_frac += frac
         assert(np.sum(cls_post)>0)
         if ratio_per_client is None:
