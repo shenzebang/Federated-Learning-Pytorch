@@ -91,11 +91,13 @@ def _evaluate(loss_fn, device, model, dataloader):
 @ray.remote(num_gpus=.3, num_cpus=4)
 def _evaluate_ray(loss_fn, device, model, dataloader):
     loss = torch.zeros(1).to(device)
+    n_data = 0
     for data, label in dataloader:
         data = data.to(device)
         label = label.to(device)
-        loss += loss_fn(model(data), label)
-    return loss.item()
+        loss += loss_fn(model(data), label, reduction="sum")
+        n_data+= data.shape[0]
+    return loss.item()/n_data
 
 @ray.remote(num_gpus=.3, num_cpus=4)
 def _acc_ray(device, model, dataloader):

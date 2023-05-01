@@ -72,9 +72,9 @@ class ImbalanceFLRes(PrimalDualFedAlgorithm):
         client_losses, client_accs = torch.tensor(self.primal_fed_algorithm.clients_evaluate_train())
         self.primal_fed_algorithm.fit(weights, self.config.n_p_steps)
         model_new = self.primal_fed_algorithm.server_state.model
-        lambda_new = sss.lambda_var + self.config.lambda_lr * (client_losses - torch.mean(client_losses) - self.config.tolerance_epsilon) / self.config.n_workers
+        lambda_new = sss.lambda_var + self.config.lambda_lr * (client_losses - torch.mean(client_losses) - self.config.tolerance_epsilon - sss.perturbation) / self.config.n_workers
         lambda_new = torch.clamp(lambda_new, min=0.)
-        perturb_new =  sss.perturbation + self.config.perturbation_lr * (-self.config.perturbation_penalty * sss.perturbation + sss.lambda_var)
+        perturb_new =  sss.perturbation + self.config.perturbation_lr * (-self.config.perturbation_penalty * sss.perturbation + sss.lambda_var)/ self.config.n_workers
         perturb_new = torch.clamp(perturb_new, min=0.)
         self.server_state = ImFL_server_state_res(global_round=sss.global_round+1, model=model_new, lambda_var=lambda_new, perturbation=perturb_new)
         client_losses_test, client_accs_test = torch.tensor(self.primal_fed_algorithm.clients_evaluate_test())
