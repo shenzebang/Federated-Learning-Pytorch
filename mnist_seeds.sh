@@ -2,13 +2,13 @@ DEVICE=0
 lru=0.1
 d=0.3
 ########################################################################################
-for seed in 0 1 2 3 4
+for penalty in 2.0
 do
-    for minority in 3 5
+    for minority in 3
     do
-        for eps in 0.004 0.02
+        for eps in 0.004
         do
-        for penalty in 2.0
+        for seed in 0 1 2 3 4
             do
                 for formulation in "imbalance-fl-res"
                 do
