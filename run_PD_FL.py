@@ -16,6 +16,8 @@ import json
 import wandb
 from copy import deepcopy
 
+torch.backends.cudnn.benchmark = False
+
 FEDERATED_LEARNERS = {
     'fed-avg': FEDAVG,
     'fed-pd': FEDPD
