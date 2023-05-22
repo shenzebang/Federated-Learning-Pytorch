@@ -1,11 +1,11 @@
-DEVICE=1
+DEVICE=0
 eps=0.02
 ########################################################################################
-for minority in 3 5
+for minority in 3
 do
     for d in 0.3
     do
-        for penalty in 0.1 1.0 2.0 4.0 10.0 0.5
+        for penalty in 2 4 10 40 100 1000
         do
             for formulation in "imbalance-fl-res"
             do

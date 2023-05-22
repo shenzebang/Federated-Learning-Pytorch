@@ -60,7 +60,7 @@ def make_parser():
     parser.add_argument('--n_p_steps', type=int, default=5, help="primal steps per dual step in PDFL")
     # Resilient added this
     parser.add_argument('--perturbation_lr', type=float, default=0.5)
-    parser.add_argument('--perturbation_penalty', type=float, default=4)
+    parser.add_argument('--perturbation_penalty', type=float, default=1)
     # Hyperparameters for fed-pd
     parser.add_argument('--eta', type=float, default=10)
     parser.add_argument('--fed_pd_dual_lr', type=float, default=1)

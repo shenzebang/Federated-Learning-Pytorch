@@ -1,7 +1,7 @@
 DEVICE=0
 imbalance=0.01
 ########################################################################################
-for minority in 1 5 3
+for minority in 5
 do
     for d in 0.3
     do
